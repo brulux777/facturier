@@ -21,9 +21,24 @@ Aucune donnée n'est envoyée à un serveur. Tout est stocké localement dans vo
 ## Stack
 
 - HTML / CSS / JavaScript vanilla
-- [html2pdf.js](https://github.com/eKoopmans/html2pdf.js) (CDN) pour la génération PDF
+- [pdfmake](https://pdfmake.github.io/docs/) (CDN) — génération PDF vectorielle côté client
 - [Inter](https://fonts.google.com/specimen/Inter) (Google Fonts)
 - Aucun build step, aucune dépendance npm
+
+## Architecture
+
+```
+index.html
+style.css
+js/
+  state.js      — état, persistance localStorage, helpers
+  settings.js   — paramètres entreprise, logo, import/export
+  clients.js    — gestion des fiches clients
+  editor.js     — éditeur de facture/devis, lignes, calculs
+  pdf.js        — aperçu HTML + génération PDF (pdfmake)
+  history.js    — historique, statuts, duplication
+  app.js        — initialisation et event bindings
+```
 
 ## Utilisation en local
 

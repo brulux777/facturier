@@ -199,6 +199,25 @@ body {
   align-items: center;
 }
 
+.card-actions select {
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.87rem;
+  font-family: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color var(--transition), box-shadow var(--transition);
+  max-width: 240px;
+}
+
+.card-actions select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
 .card-body {
   padding: 16px 20px;
 }
@@ -415,7 +434,7 @@ body {
   grid-template-columns: 1fr 70px 100px 80px 110px 40px;
   gap: 8px;
   padding: 6px 0;
-  align-items: center;
+  align-items: start;
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -423,7 +442,8 @@ body {
   border-bottom: none;
 }
 
-.line-item input {
+.line-item input,
+.line-item textarea {
   width: 100%;
   padding: 7px 10px;
   border: 1px solid var(--color-border);
@@ -434,7 +454,13 @@ body {
   transition: border-color var(--transition);
 }
 
-.line-item input:focus {
+.line-item textarea {
+  resize: vertical;
+  min-height: 38px;
+}
+
+.line-item input:focus,
+.line-item textarea:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px var(--color-primary-light);
