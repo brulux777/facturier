@@ -173,26 +173,7 @@ function loadSettingsForm() {
 
 function saveSettings(e) {
   e.preventDefault();
-  const form = document.getElementById('settings-form');
-  state.settings.companyName = form.elements.companyName.value.trim();
-  state.settings.address = form.elements.address.value.trim();
-  state.settings.postalCode = form.elements.postalCode.value.trim();
-  state.settings.city = form.elements.city.value.trim();
-  state.settings.siret = form.elements.siret.value.trim();
-  state.settings.tvaNumber = form.elements.tvaNumber.value.trim();
-  state.settings.phone = form.elements.phone.value.trim();
-  state.settings.email = form.elements.email.value.trim();
-  state.settings.website = form.elements.website.value.trim();
-  state.settings.bank = form.elements.bank.value.trim();
-  state.settings.iban = form.elements.iban.value.trim();
-  state.settings.bic = form.elements.bic.value.trim();
-  state.settings.defaultPaymentTerms = form.elements.defaultPaymentTerms.value.trim();
-  state.settings.defaultPaymentDelay = parseInt(form.elements.defaultPaymentDelay.value) || 30;
-  state.settings.defaultTva = parseFloat(form.elements.defaultTva.value) || 20;
-  state.settings.invoicePrefix = form.elements.invoicePrefix.value.trim() || 'F';
-  state.settings.quotePrefix = form.elements.quotePrefix.value.trim() || 'D';
-  state.settings.legalMentions = form.elements.legalMentions.value.trim();
-  saveState();
+  syncSettingsFromForm();
   showToast('Paramètres enregistrés');
 }
 
@@ -975,7 +956,31 @@ function handleDateChange() {
 // ============================================
 // IMPORT / EXPORT
 // ============================================
+function syncSettingsFromForm() {
+  const form = document.getElementById('settings-form');
+  state.settings.companyName = form.elements.companyName.value.trim();
+  state.settings.address = form.elements.address.value.trim();
+  state.settings.postalCode = form.elements.postalCode.value.trim();
+  state.settings.city = form.elements.city.value.trim();
+  state.settings.siret = form.elements.siret.value.trim();
+  state.settings.tvaNumber = form.elements.tvaNumber.value.trim();
+  state.settings.phone = form.elements.phone.value.trim();
+  state.settings.email = form.elements.email.value.trim();
+  state.settings.website = form.elements.website.value.trim();
+  state.settings.bank = form.elements.bank.value.trim();
+  state.settings.iban = form.elements.iban.value.trim();
+  state.settings.bic = form.elements.bic.value.trim();
+  state.settings.defaultPaymentTerms = form.elements.defaultPaymentTerms.value.trim();
+  state.settings.defaultPaymentDelay = parseInt(form.elements.defaultPaymentDelay.value) || 30;
+  state.settings.defaultTva = parseFloat(form.elements.defaultTva.value) || 20;
+  state.settings.invoicePrefix = form.elements.invoicePrefix.value.trim() || 'F';
+  state.settings.quotePrefix = form.elements.quotePrefix.value.trim() || 'D';
+  state.settings.legalMentions = form.elements.legalMentions.value.trim();
+  saveState();
+}
+
 function exportData() {
+  syncSettingsFromForm();
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
