@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS = {
   defaultPaymentTerms: 'Virement bancaire',
   defaultPaymentDelay: 30,
   defaultTva: 20,
+  tvaExempt: false,
   invoicePrefix: 'F',
   quotePrefix: 'D',
   legalMentions:

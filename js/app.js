@@ -17,6 +17,10 @@ function init() {
   document.getElementById('settings-form').addEventListener('change', autoSaveSettings);
   document.getElementById('s-logo').addEventListener('change', handleLogoUpload);
   document.getElementById('btn-remove-logo').addEventListener('click', removeLogo);
+  document.getElementById('s-tva-exempt').addEventListener('change', () => {
+    updateTvaExemptUI();
+    autoSaveSettings();
+  });
 
   // Import / Export
   document.getElementById('btn-export-data').addEventListener('click', exportData);

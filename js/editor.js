@@ -45,7 +45,7 @@ function createEmptyLine() {
     description: '',
     quantity: 1,
     unitPrice: 0,
-    tvaRate: state.settings.defaultTva,
+    tvaRate: state.settings.tvaExempt ? 0 : state.settings.defaultTva,
   };
 }
 
@@ -58,7 +58,7 @@ function renderLineItems() {
         <textarea rows="2" placeholder="Description" data-field="description">${escapeHTML(item.description)}</textarea>
         <input type="number" value="${item.quantity}" min="0" step="1" data-field="quantity">
         <input type="number" value="${item.unitPrice}" min="0" step="0.01" data-field="unitPrice">
-        <input type="number" value="${item.tvaRate}" min="0" max="100" step="0.1" data-field="tvaRate">
+        <input type="number" value="${item.tvaRate}" min="0" max="100" step="0.1" data-field="tvaRate" ${state.settings.tvaExempt ? 'disabled' : ''}>
         <div class="li-total-value">${formatCurrency(round2(item.quantity * item.unitPrice))}</div>
         <button type="button" class="btn btn-ghost btn-remove-line" data-index="${i}" title="Supprimer">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>

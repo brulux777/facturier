@@ -31,6 +31,8 @@ function buildInvoiceHTML(data) {
     [c.postalCode, c.city].filter(Boolean).join(' '),
   ].filter(Boolean);
 
+  const tvaExempt = !!s.tvaExempt;
+
   const itemRows = data.items
     .filter((i) => i.description.trim())
     .map(
@@ -39,14 +41,14 @@ function buildInvoiceHTML(data) {
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;">${escapeHTML(item.description)}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:13px;">${item.quantity}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:13px;">${formatCurrency(item.unitPrice)}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:13px;">${item.tvaRate}%</td>
+        ${tvaExempt ? '' : `<td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:13px;">${item.tvaRate}%</td>`}
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:13px;font-weight:500;">${formatCurrency(round2(item.quantity * item.unitPrice))}</td>
       </tr>
     `
     )
     .join('');
 
-  const tvaRows = data.totals.tvaBreakdown
+  const tvaRows = tvaExempt ? '' : data.totals.tvaBreakdown
     .map(
       (b) => `
       <tr>
@@ -80,10 +82,16 @@ function buildInvoiceHTML(data) {
     `
     : '';
 
-  const legalHTML = s.legalMentions
+  const tvaExemptMention = 'TVA non applicable, art. 293 B du CGI';
+  const allLegalMentions = tvaExempt
+    ? [tvaExemptMention, s.legalMentions].filter(Boolean).join('\n')
+    : s.legalMentions;
+
+  const legalHTML = allLegalMentions
     ? `
       <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;">
-        <div style="font-size:10px;color:#94a3b8;line-height:1.5;">${escapeHTML(s.legalMentions)}</div>
+        ${tvaExempt ? `<div style="font-size:11px;font-weight:600;color:#475569;margin-bottom:4px;">TVA non applicable, art. 293 B du CGI</div>` : ''}
+        ${s.legalMentions ? `<div style="font-size:10px;color:#94a3b8;line-height:1.5;">${escapeHTML(s.legalMentions)}</div>` : ''}
       </div>
     `
     : '';
@@ -118,9 +126,9 @@ function buildInvoiceHTML(data) {
           <tr style="background:#f1f5f9;">
             <th style="padding:10px;text-align:left;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;">Description</th>
             <th style="padding:10px;text-align:center;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:60px;">Qt\u00e9</th>
-            <th style="padding:10px;text-align:right;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:100px;">PU HT</th>
-            <th style="padding:10px;text-align:center;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:60px;">TVA</th>
-            <th style="padding:10px;text-align:right;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:110px;">Total HT</th>
+            <th style="padding:10px;text-align:right;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:100px;">${tvaExempt ? 'Prix unit.' : 'PU HT'}</th>
+            ${tvaExempt ? '' : '<th style="padding:10px;text-align:center;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:60px;">TVA</th>'}
+            <th style="padding:10px;text-align:right;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:110px;">Total</th>
           </tr>
         </thead>
         <tbody>
@@ -130,13 +138,13 @@ function buildInvoiceHTML(data) {
 
       <div style="display:flex;justify-content:flex-end;">
         <table style="border-collapse:collapse;min-width:260px;">
-          <tr>
+          ${tvaExempt ? '' : `<tr>
             <td style="padding:5px 10px;font-size:13px;color:#64748b;">Total HT</td>
             <td style="padding:5px 10px;text-align:right;font-size:13px;font-weight:600;">${formatCurrency(data.totals.totalHT)}</td>
           </tr>
-          ${tvaRows}
+          ${tvaRows}`}
           <tr style="border-top:2px solid #2563eb;">
-            <td style="padding:10px;font-size:15px;font-weight:700;color:#1e293b;">Total TTC</td>
+            <td style="padding:10px;font-size:15px;font-weight:700;color:#1e293b;">${tvaExempt ? 'Total' : 'Total TTC'}</td>
             <td style="padding:10px;text-align:right;font-size:15px;font-weight:700;color:#2563eb;">${formatCurrency(data.totals.totalTTC)}</td>
           </tr>
         </table>
@@ -168,6 +176,7 @@ function buildPdfDefinition(data) {
   const s = data.settings || state.settings;
   const c = data.client;
   const typeLabel = data.type === 'invoice' ? 'FACTURE' : 'DEVIS';
+  const tvaExempt = !!s.tvaExempt;
   const blue = '#2563eb';
   const gray = '#64748b';
   const muted = '#94a3b8';
@@ -213,39 +222,42 @@ function buildPdfDefinition(data) {
 
   // --- Items table ---
   const filteredItems = data.items.filter((i) => i.description.trim());
-  const tableBody = [
-    [
-      { text: 'Description', style: 'tableHeader' },
-      { text: 'Qt\u00e9', style: 'tableHeader', alignment: 'center' },
-      { text: 'PU HT', style: 'tableHeader', alignment: 'right' },
-      { text: 'TVA', style: 'tableHeader', alignment: 'center' },
-      { text: 'Total HT', style: 'tableHeader', alignment: 'right' },
-    ],
+  const tableHeader = [
+    { text: 'Description', style: 'tableHeader' },
+    { text: 'Qt\u00e9', style: 'tableHeader', alignment: 'center' },
+    { text: tvaExempt ? 'Prix unit.' : 'PU HT', style: 'tableHeader', alignment: 'right' },
   ];
+  if (!tvaExempt) tableHeader.push({ text: 'TVA', style: 'tableHeader', alignment: 'center' });
+  tableHeader.push({ text: 'Total', style: 'tableHeader', alignment: 'right' });
+
+  const tableBody = [tableHeader];
   filteredItems.forEach((item) => {
-    tableBody.push([
+    const row = [
       { text: item.description, fontSize: 9 },
       { text: String(item.quantity), fontSize: 9, alignment: 'center' },
       { text: formatCurrency(item.unitPrice), fontSize: 9, alignment: 'right' },
-      { text: `${item.tvaRate}%`, fontSize: 9, alignment: 'center' },
-      { text: formatCurrency(round2(item.quantity * item.unitPrice)), fontSize: 9, alignment: 'right', bold: true },
-    ]);
+    ];
+    if (!tvaExempt) row.push({ text: `${item.tvaRate}%`, fontSize: 9, alignment: 'center' });
+    row.push({ text: formatCurrency(round2(item.quantity * item.unitPrice)), fontSize: 9, alignment: 'right', bold: true });
+    tableBody.push(row);
   });
 
   // --- Totals ---
   const totalsBody = [];
-  totalsBody.push([
-    { text: 'Total HT', fontSize: 9, color: gray },
-    { text: formatCurrency(data.totals.totalHT), fontSize: 9, bold: true, alignment: 'right' },
-  ]);
-  data.totals.tvaBreakdown.forEach((b) => {
+  if (!tvaExempt) {
     totalsBody.push([
-      { text: `TVA ${b.rate}% (sur ${formatCurrency(b.base)})`, fontSize: 9, color: gray },
-      { text: formatCurrency(b.tva), fontSize: 9, alignment: 'right' },
+      { text: 'Total HT', fontSize: 9, color: gray },
+      { text: formatCurrency(data.totals.totalHT), fontSize: 9, bold: true, alignment: 'right' },
     ]);
-  });
+    data.totals.tvaBreakdown.forEach((b) => {
+      totalsBody.push([
+        { text: `TVA ${b.rate}% (sur ${formatCurrency(b.base)})`, fontSize: 9, color: gray },
+        { text: formatCurrency(b.tva), fontSize: 9, alignment: 'right' },
+      ]);
+    });
+  }
   totalsBody.push([
-    { text: 'Total TTC', fontSize: 13, bold: true, color: dark, margin: [0, 4, 0, 0] },
+    { text: tvaExempt ? 'Total' : 'Total TTC', fontSize: 13, bold: true, color: dark, margin: [0, 4, 0, 0] },
     { text: formatCurrency(data.totals.totalTTC), fontSize: 13, bold: true, color: blue, alignment: 'right', margin: [0, 4, 0, 0] },
   ]);
 
@@ -277,7 +289,7 @@ function buildPdfDefinition(data) {
   content.push({
     table: {
       headerRows: 1,
-      widths: ['*', 40, 70, 40, 80],
+      widths: tvaExempt ? ['*', 40, 70, 80] : ['*', 40, 70, 40, 80],
       body: tableBody,
     },
     layout: {
@@ -334,9 +346,14 @@ function buildPdfDefinition(data) {
     });
   }
 
-  if (s.legalMentions) {
+  if (tvaExempt || s.legalMentions) {
     content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#e2e8f0' }], margin: [0, 12, 0, 8] });
-    content.push({ text: s.legalMentions, fontSize: 7, color: muted, lineHeight: 1.4 });
+    if (tvaExempt) {
+      content.push({ text: 'TVA non applicable, art. 293 B du CGI', fontSize: 8, bold: true, color: '#475569', margin: [0, 0, 0, 4] });
+    }
+    if (s.legalMentions) {
+      content.push({ text: s.legalMentions, fontSize: 7, color: muted, lineHeight: 1.4 });
+    }
   }
 
   return {

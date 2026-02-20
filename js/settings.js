@@ -19,11 +19,13 @@ function loadSettingsForm() {
   form.elements.defaultPaymentTerms.value = s.defaultPaymentTerms;
   form.elements.defaultPaymentDelay.value = s.defaultPaymentDelay;
   form.elements.defaultTva.value = s.defaultTva;
+  form.elements.tvaExempt.checked = !!s.tvaExempt;
   form.elements.invoicePrefix.value = s.invoicePrefix;
   form.elements.quotePrefix.value = s.quotePrefix;
   form.elements.legalMentions.value = s.legalMentions;
 
   updateLogoPreview();
+  updateTvaExemptUI();
 }
 
 let settingsDebounceTimer = null;
@@ -79,6 +81,26 @@ function updateLogoPreview() {
   }
 }
 
+function updateTvaExemptUI() {
+  const exempt = document.getElementById('s-tva-exempt').checked;
+  const tvaNumberGroup = document.getElementById('tva-number-group');
+  const defaultTvaInput = document.getElementById('s-default-tva');
+
+  if (tvaNumberGroup) tvaNumberGroup.style.display = exempt ? 'none' : '';
+  if (defaultTvaInput) {
+    defaultTvaInput.disabled = exempt;
+    if (exempt) defaultTvaInput.value = '0';
+  }
+
+  // Update existing line items in editor
+  if (typeof currentLineItems !== 'undefined') {
+    currentLineItems.forEach((item) => {
+      item.tvaRate = exempt ? 0 : (state.settings.defaultTva || 20);
+    });
+    if (typeof renderLineItems === 'function') renderLineItems();
+  }
+}
+
 function syncSettingsFromForm() {
   const form = document.getElementById('settings-form');
   state.settings.companyName = form.elements.companyName.value.trim();
@@ -96,6 +118,7 @@ function syncSettingsFromForm() {
   state.settings.defaultPaymentTerms = form.elements.defaultPaymentTerms.value.trim();
   state.settings.defaultPaymentDelay = parseInt(form.elements.defaultPaymentDelay.value) || 30;
   state.settings.defaultTva = parseFloat(form.elements.defaultTva.value) || 20;
+  state.settings.tvaExempt = form.elements.tvaExempt.checked;
   state.settings.invoicePrefix = form.elements.invoicePrefix.value.trim() || 'F';
   state.settings.quotePrefix = form.elements.quotePrefix.value.trim() || 'D';
   state.settings.legalMentions = form.elements.legalMentions.value.trim();
