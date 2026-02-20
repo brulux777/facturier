@@ -171,8 +171,18 @@ function loadSettingsForm() {
   updateLogoPreview();
 }
 
+let settingsDebounceTimer = null;
+
+function autoSaveSettings() {
+  clearTimeout(settingsDebounceTimer);
+  settingsDebounceTimer = setTimeout(() => {
+    syncSettingsFromForm();
+  }, 500);
+}
+
 function saveSettings(e) {
   e.preventDefault();
+  clearTimeout(settingsDebounceTimer);
   syncSettingsFromForm();
   showToast('Paramètres enregistrés');
 }
@@ -1062,8 +1072,10 @@ function init() {
     btn.addEventListener('click', () => showView(btn.dataset.view));
   });
 
-  // Settings form
+  // Settings form — auto-save on every change
   document.getElementById('settings-form').addEventListener('submit', saveSettings);
+  document.getElementById('settings-form').addEventListener('input', autoSaveSettings);
+  document.getElementById('settings-form').addEventListener('change', autoSaveSettings);
   document.getElementById('s-logo').addEventListener('change', handleLogoUpload);
   document.getElementById('btn-remove-logo').addEventListener('click', removeLogo);
 
