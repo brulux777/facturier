@@ -973,6 +973,55 @@ function handleDateChange() {
 }
 
 // ============================================
+// IMPORT / EXPORT
+// ============================================
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `facturier-backup-${todayISO()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Données exportées');
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (ev) {
+    try {
+      const imported = JSON.parse(ev.target.result);
+
+      if (!imported.settings || !imported.invoices || !imported.clients) {
+        showToast('Fichier invalide : structure incorrecte', 'error');
+        return;
+      }
+
+      if (!confirm('Cela remplacera toutes vos données actuelles. Continuer ?')) return;
+
+      state.settings = { ...DEFAULT_SETTINGS, ...imported.settings };
+      state.clients = imported.clients || [];
+      state.invoices = imported.invoices || [];
+      state.counters = imported.counters || { invoice: 0, quote: 0 };
+
+      saveState();
+      loadSettingsForm();
+      populateClientSelect();
+      resetInvoiceForm();
+      showToast('Données importées avec succès');
+    } catch (err) {
+      console.error('Import error:', err);
+      showToast('Erreur lors de la lecture du fichier', 'error');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// ============================================
 // EDIT NUMBER
 // ============================================
 function toggleEditNumber() {
@@ -1012,6 +1061,13 @@ function init() {
   document.getElementById('settings-form').addEventListener('submit', saveSettings);
   document.getElementById('s-logo').addEventListener('change', handleLogoUpload);
   document.getElementById('btn-remove-logo').addEventListener('click', removeLogo);
+
+  // Import / Export
+  document.getElementById('btn-export-data').addEventListener('click', exportData);
+  document.getElementById('btn-import-data').addEventListener('click', () => {
+    document.getElementById('import-file-input').click();
+  });
+  document.getElementById('import-file-input').addEventListener('change', importData);
 
   // Client
   document.getElementById('client-select').addEventListener('change', (e) => {

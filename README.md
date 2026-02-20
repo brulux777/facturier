@@ -1,28 +1,22 @@
 # Facturier Pro
 
-Générateur de factures et devis professionnel — 100% côté client, hébergé gratuitement sur GitHub Pages.
+Générateur de factures et devis professionnel, gratuit et open-source. Fonctionne 100% dans le navigateur — aucun serveur, aucune inscription, aucune donnée transmise.
+
+**[Utiliser l'application](https://brulux777.github.io/facturier)**
 
 ## Fonctionnalités
 
-- **Factures & Devis** — Numérotation automatique, TVA configurable, multi-taux
+- **Factures & Devis** — Numérotation automatique (éditable), TVA configurable, multi-taux
 - **Gestion clients** — Enregistrement et réutilisation des fiches clients
-- **PDF professionnel** — Génération et téléchargement de PDF conformes
-- **Historique** — Recherche, filtrage, statut (brouillon/envoyée/payée)
+- **PDF professionnel** — Génération et téléchargement de PDF conformes aux normes françaises
+- **Historique** — Recherche, filtrage, statut (brouillon/envoyée/payée), duplication
 - **Paramètres entreprise** — Logo, coordonnées bancaires, mentions légales
-- **100% local** — Aucun serveur, toutes les données restent dans le navigateur (localStorage)
+- **Import / Export** — Sauvegarde et restauration de toutes les données (JSON)
+- **100% local** — Toutes les données restent dans le `localStorage` de votre navigateur
 
-## Déploiement
+## Confidentialité
 
-### GitHub Pages
-
-1. Créer un repo GitHub (privé ou public)
-2. Pousser les fichiers
-3. Activer GitHub Pages dans Settings → Pages → Source: `main` / `root`
-4. L'app est accessible à `https://[username].github.io/[repo-name]`
-
-### Local
-
-Ouvrir `index.html` dans un navigateur. Aucune installation requise.
+Aucune donnée n'est envoyée à un serveur. Tout est stocké localement dans votre navigateur. Utilisez la fonction **Exporter (JSON)** dans les paramètres pour sauvegarder vos données.
 
 ## Stack
 
@@ -31,7 +25,11 @@ Ouvrir `index.html` dans un navigateur. Aucune installation requise.
 - [Inter](https://fonts.google.com/specimen/Inter) (Google Fonts)
 - Aucun build step, aucune dépendance npm
 
-## Mentions légales françaises
+## Utilisation en local
+
+Ouvrir `index.html` dans un navigateur. Aucune installation requise.
+
+## Mentions légales
 
 Le template PDF inclut par défaut les mentions obligatoires pour les factures en France :
 - Pénalités de retard (3× taux légal)
@@ -39,3 +37,7 @@ Le template PDF inclut par défaut les mentions obligatoires pour les factures e
 - Mention d'escompte
 
 Ces mentions sont personnalisables dans les paramètres.
+
+## Licence
+
+MIT
