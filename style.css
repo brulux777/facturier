@@ -600,14 +600,16 @@ body {
   cursor: pointer;
 }
 
-.history-list,
+.history-list {
+  overflow-x: auto;
+}
+
 .clients-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.history-item,
 .client-item {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -620,50 +622,63 @@ body {
   transition: box-shadow var(--transition);
 }
 
-.history-item:hover,
 .client-item:hover {
   box-shadow: var(--shadow);
 }
 
-.history-item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.history-item-top {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.history-item-number {
-  font-weight: 600;
-  font-size: 0.93rem;
-}
-
-.history-item-date {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-}
-
-.history-item-client {
+/* History table */
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
   font-size: 0.87rem;
+}
+
+.history-table thead th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--color-bg);
+  border-bottom: 2px solid var(--color-border);
+  white-space: nowrap;
 }
 
-.history-item-amount {
-  font-weight: 700;
-  font-size: 1rem;
-  color: var(--color-text);
+.history-table tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.history-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.history-table tbody tr:hover {
+  background: var(--color-bg);
+}
+
+.history-table .cell-amount {
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
-.history-item-actions {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  margin-left: 16px;
+.history-table .cell-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.history-table .cell-actions .btn-ghost svg {
+  width: 15px;
+  height: 15px;
 }
 
 .badge {

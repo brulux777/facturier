@@ -782,6 +782,9 @@ function downloadPDF() {
 
   const html = buildInvoiceHTML(data);
   const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.left = '-9999px';
+  container.style.top = '0';
   container.innerHTML = html;
   document.body.appendChild(container);
 
@@ -834,11 +837,11 @@ function renderHistory() {
   }
 
   if (invoices.length === 0) {
-    container.innerHTML = '<p class="empty-state">Aucun document trouvé.</p>';
+    container.innerHTML = '<p class="empty-state">Aucun document trouv\u00e9.</p>';
     return;
   }
 
-  container.innerHTML = invoices
+  const rows = invoices
     .map((inv) => {
       const typeBadge =
         inv.type === 'invoice'
@@ -847,44 +850,50 @@ function renderHistory() {
 
       const statusBadge = {
         draft: '<span class="badge badge-draft">Brouillon</span>',
-        sent: '<span class="badge badge-sent">Envoyée</span>',
-        paid: '<span class="badge badge-paid">Payée</span>',
+        sent: '<span class="badge badge-sent">Envoy\u00e9e</span>',
+        paid: '<span class="badge badge-paid">Pay\u00e9e</span>',
       }[inv.status] || '';
 
       return `
-        <div class="history-item">
-          <div class="history-item-info">
-            <div class="history-item-top">
-              <span class="history-item-number">${escapeHTML(inv.number)}</span>
-              ${typeBadge}
-              ${statusBadge}
-              <span class="history-item-date">${formatDate(inv.date)}</span>
-            </div>
-            <div class="history-item-client">${escapeHTML(inv.client.name)}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div class="history-item-amount">${formatCurrency(inv.totals.totalTTC)}</div>
-            <div class="history-item-actions">
-              <button class="btn btn-sm btn-outline" onclick="loadInvoiceIntoForm('${inv.id}')" title="Modifier">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-              </button>
-              <button class="btn btn-sm btn-outline" onclick="duplicateInvoice('${inv.id}')" title="Dupliquer">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              </button>
-              <select class="btn btn-sm btn-outline" onchange="updateInvoiceStatus('${inv.id}', this.value)" style="font-size:0.75rem;padding:4px 6px;">
-                <option value="draft" ${inv.status === 'draft' ? 'selected' : ''}>Brouillon</option>
-                <option value="sent" ${inv.status === 'sent' ? 'selected' : ''}>Envoyée</option>
-                <option value="paid" ${inv.status === 'paid' ? 'selected' : ''}>Payée</option>
-              </select>
-              <button class="btn btn-ghost" onclick="deleteInvoice('${inv.id}')" title="Supprimer">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-              </button>
-            </div>
-          </div>
-        </div>
+        <tr>
+          <td>${escapeHTML(inv.number)}</td>
+          <td>${typeBadge}</td>
+          <td>${formatDate(inv.date)}</td>
+          <td>${escapeHTML(inv.client.name)}</td>
+          <td class="cell-amount">${formatCurrency(inv.totals.totalTTC)}</td>
+          <td>${statusBadge}</td>
+          <td class="cell-actions">
+            <button class="btn btn-ghost" onclick="loadInvoiceIntoForm('${inv.id}')" title="Modifier">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </button>
+            <button class="btn btn-ghost" onclick="duplicateInvoice('${inv.id}')" title="Dupliquer">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <button class="btn btn-ghost" onclick="deleteInvoice('${inv.id}')" title="Supprimer">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </td>
+        </tr>
       `;
     })
     .join('');
+
+  container.innerHTML = `
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>N\u00b0</th>
+          <th>Type</th>
+          <th>Date</th>
+          <th>Client</th>
+          <th>Montant TTC</th>
+          <th>Statut</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
 }
 
 function duplicateInvoice(invoiceId) {
