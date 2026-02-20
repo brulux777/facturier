@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facturier Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ========== HEADER ========== -->
+    <header class="app-header">
+      <div class="header-brand">
+        <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+        <h1>Facturier</h1>
+      </div>
+      <nav class="header-nav">
+        <button class="nav-btn active" data-view="editor">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Nouveau
+        </button>
+        <button class="nav-btn" data-view="history">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Historique
+        </button>
+        <button class="nav-btn" data-view="clients">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Clients
+        </button>
+        <button class="nav-btn" data-view="settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Paramètres
+        </button>
+      </nav>
+    </header>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <main class="app-main">
+
+      <!-- ===== EDITOR VIEW ===== -->
+      <section id="view-editor" class="view active">
+        <div class="view-header">
+          <h2>Nouveau document</h2>
+        </div>
+
+        <form id="invoice-form" autocomplete="off">
+          <!-- Document Info -->
+          <div class="card">
+            <div class="card-header">
+              <h3>Document</h3>
+            </div>
+            <div class="card-body">
+              <div class="form-row cols-4">
+                <div class="form-group">
+                  <label for="doc-type">Type</label>
+                  <select id="doc-type" name="type">
+                    <option value="invoice">Facture</option>
+                    <option value="quote">Devis</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="doc-number">Numéro</label>
+                  <div class="input-with-action">
+                    <input type="text" id="doc-number" name="number" readonly>
+                    <button type="button" id="btn-edit-number" class="btn btn-ghost btn-input-action" title="Modifier le numéro">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="doc-date">Date</label>
+                  <input type="date" id="doc-date" name="date" required>
+                </div>
+                <div class="form-group">
+                  <label for="doc-due-date">Échéance</label>
+                  <input type="date" id="doc-due-date" name="dueDate">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Client Info -->
+          <div class="card">
+            <div class="card-header">
+              <h3>Client</h3>
+              <div class="card-actions">
+                <select id="client-select">
+                  <option value="">— Sélectionner un client —</option>
+                </select>
+                <button type="button" id="btn-save-client" class="btn btn-sm btn-outline" title="Enregistrer ce client">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  Enregistrer
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="form-row cols-2">
+                <div class="form-group">
+                  <label for="client-name">Raison sociale *</label>
+                  <input type="text" id="client-name" name="clientName" required>
+                </div>
+                <div class="form-group">
+                  <label for="client-email">Email</label>
+                  <input type="email" id="client-email" name="clientEmail">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="client-address">Adresse</label>
+                <input type="text" id="client-address" name="clientAddress">
+              </div>
+              <div class="form-row cols-3">
+                <div class="form-group">
+                  <label for="client-postal">Code postal</label>
+                  <input type="text" id="client-postal" name="clientPostalCode">
+                </div>
+                <div class="form-group">
+                  <label for="client-city">Ville</label>
+                  <input type="text" id="client-city" name="clientCity">
+                </div>
+                <div class="form-group">
+                  <label for="client-siret">SIRET</label>
+                  <input type="text" id="client-siret" name="clientSiret">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Line Items -->
+          <div class="card">
+            <div class="card-header">
+              <h3>Prestations</h3>
+            </div>
+            <div class="card-body">
+              <div class="line-items-header">
+                <span class="li-desc">Description</span>
+                <span class="li-qty">Qté</span>
+                <span class="li-price">PU HT (€)</span>
+                <span class="li-tva">TVA %</span>
+                <span class="li-total">Total HT</span>
+                <span class="li-action"></span>
+              </div>
+              <div id="line-items-container">
+                <!-- Populated by JS -->
+              </div>
+              <button type="button" id="btn-add-line" class="btn btn-outline btn-add-line">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Ajouter une ligne
+              </button>
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div class="card">
+            <div class="card-header">
+              <h3>Notes</h3>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <textarea id="doc-notes" name="notes" rows="3" placeholder="Conditions particulières, détails de la prestation..."></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Totals -->
+          <div class="card card-totals">
+            <div class="card-body">
+              <div class="totals-grid">
+                <div class="totals-spacer"></div>
+                <div class="totals-summary">
+                  <div class="totals-row">
+                    <span>Total HT</span>
+                    <span id="total-ht">0,00 €</span>
+                  </div>
+                  <div id="tva-breakdown"></div>
+                  <div class="totals-row totals-row-final">
+                    <span>Total TTC</span>
+                    <span id="total-ttc">0,00 €</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="form-actions">
+            <button type="button" id="btn-save-draft" class="btn btn-outline">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Enregistrer brouillon
+            </button>
+            <button type="button" id="btn-preview" class="btn btn-secondary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              Aperçu
+            </button>
+            <button type="button" id="btn-download" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Télécharger PDF
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ===== HISTORY VIEW ===== -->
+      <section id="view-history" class="view">
+        <div class="view-header">
+          <h2>Historique</h2>
+          <div class="view-actions">
+            <input type="text" id="history-search" placeholder="Rechercher..." class="search-input">
+            <select id="history-filter">
+              <option value="all">Tous</option>
+              <option value="invoice">Factures</option>
+              <option value="quote">Devis</option>
+            </select>
+          </div>
+        </div>
+        <div id="history-list" class="history-list">
+          <p class="empty-state">Aucun document enregistré.</p>
+        </div>
+      </section>
+
+      <!-- ===== CLIENTS VIEW ===== -->
+      <section id="view-clients" class="view">
+        <div class="view-header">
+          <h2>Clients</h2>
+        </div>
+        <div id="clients-list" class="clients-list">
+          <p class="empty-state">Aucun client enregistré.</p>
+        </div>
+      </section>
+
+      <!-- ===== SETTINGS VIEW ===== -->
+      <section id="view-settings" class="view">
+        <div class="view-header">
+          <h2>Paramètres</h2>
+        </div>
+
+        <form id="settings-form" autocomplete="off">
+          <!-- Company Info -->
+          <div class="card">
+            <div class="card-header"><h3>Mon entreprise</h3></div>
+            <div class="card-body">
+              <div class="form-row cols-2">
+                <div class="form-group">
+                  <label for="s-company-name">Nom de l'entreprise *</label>
+                  <input type="text" id="s-company-name" name="companyName" required>
+                </div>
+                <div class="form-group">
+                  <label for="s-logo">Logo</label>
+                  <div class="logo-upload">
+                    <input type="file" id="s-logo" name="logo" accept="image/png,image/jpeg,image/svg+xml">
+                    <div id="logo-preview" class="logo-preview"></div>
+                    <button type="button" id="btn-remove-logo" class="btn btn-sm btn-danger" style="display:none;">Supprimer</button>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="s-address">Adresse</label>
+                <input type="text" id="s-address" name="address">
+              </div>
+              <div class="form-row cols-2">
+                <div class="form-group">
+                  <label for="s-postal">Code postal</label>
+                  <input type="text" id="s-postal" name="postalCode">
+                </div>
+                <div class="form-group">
+                  <label for="s-city">Ville</label>
+                  <input type="text" id="s-city" name="city">
+                </div>
+              </div>
+              <div class="form-row cols-2">
+                <div class="form-group">
+                  <label for="s-siret">SIRET</label>
+                  <input type="text" id="s-siret" name="siret">
+                </div>
+                <div class="form-group">
+                  <label for="s-tva-number">N° TVA intracommunautaire</label>
+                  <input type="text" id="s-tva-number" name="tvaNumber">
+                </div>
+              </div>
+              <div class="form-row cols-3">
+                <div class="form-group">
+                  <label for="s-phone">Téléphone</label>
+                  <input type="tel" id="s-phone" name="phone">
+                </div>
+                <div class="form-group">
+                  <label for="s-email">Email</label>
+                  <input type="email" id="s-email" name="email">
+                </div>
+                <div class="form-group">
+                  <label for="s-website">Site web</label>
+                  <input type="url" id="s-website" name="website" placeholder="https://...">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bank Details -->
+          <div class="card">
+            <div class="card-header"><h3>Coordonnées bancaires</h3></div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="s-bank">Banque</label>
+                <input type="text" id="s-bank" name="bank">
+              </div>
+              <div class="form-row cols-2">
+                <div class="form-group">
+                  <label for="s-iban">IBAN</label>
+                  <input type="text" id="s-iban" name="iban">
+                </div>
+                <div class="form-group">
+                  <label for="s-bic">BIC</label>
+                  <input type="text" id="s-bic" name="bic">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Defaults -->
+          <div class="card">
+            <div class="card-header"><h3>Valeurs par défaut</h3></div>
+            <div class="card-body">
+              <div class="form-row cols-3">
+                <div class="form-group">
+                  <label for="s-payment-terms">Mode de paiement</label>
+                  <input type="text" id="s-payment-terms" name="defaultPaymentTerms" value="Virement bancaire">
+                </div>
+                <div class="form-group">
+                  <label for="s-payment-delay">Délai de paiement (jours)</label>
+                  <input type="number" id="s-payment-delay" name="defaultPaymentDelay" value="30" min="0">
+                </div>
+                <div class="form-group">
+                  <label for="s-default-tva">Taux TVA par défaut (%)</label>
+                  <input type="number" id="s-default-tva" name="defaultTva" value="20" min="0" max="100" step="0.1">
+                </div>
+              </div>
+              <div class="form-row cols-2">
+                <div class="form-group">
+                  <label for="s-invoice-prefix">Préfixe facture</label>
+                  <input type="text" id="s-invoice-prefix" name="invoicePrefix" value="F">
+                </div>
+                <div class="form-group">
+                  <label for="s-quote-prefix">Préfixe devis</label>
+                  <input type="text" id="s-quote-prefix" name="quotePrefix" value="D">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="s-legal">Mentions légales</label>
+                <textarea id="s-legal" name="legalMentions" rows="4">En cas de retard de paiement, une pénalité de 3 fois le taux d'intérêt légal sera appliquée, ainsi qu'une indemnité forfaitaire de 40 € pour frais de recouvrement. Pas d'escompte en cas de paiement anticipé.</textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              Enregistrer les paramètres
+            </button>
+          </div>
+        </form>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ========== PREVIEW MODAL ========== -->
+  <div id="preview-modal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Aperçu du document</h3>
+        <div class="modal-actions">
+          <button type="button" id="modal-download" class="btn btn-primary btn-sm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Télécharger PDF
+          </button>
+          <button type="button" id="modal-close" class="btn btn-outline btn-sm">Fermer</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div id="invoice-preview"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TOAST ========== -->
+  <div id="toast-container"></div>
+
+  <!-- ========== FIRST-RUN BANNER ========== -->
+  <div id="first-run-banner" class="first-run-banner" style="display:none;">
+    <div class="first-run-content">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <p>Commencez par configurer vos informations d'entreprise dans les <strong>Paramètres</strong>.</p>
+      <button type="button" id="btn-go-settings" class="btn btn-primary btn-sm">Configurer</button>
+      <button type="button" id="btn-dismiss-banner" class="btn btn-outline btn-sm">Plus tard</button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js" integrity="sha512-MpDFIChbcXl2QgipQrt1VcPHMldRILetapBEmc2JMUBBkZhURAMHGJOJBPFXApKIbv0LADI+CYMHkNO1MoEhzQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="app.js"></script>
+</body>
+</html>
