@@ -777,6 +777,11 @@ function closePreview() {
 }
 
 function downloadPDF() {
+  if (typeof html2pdf === 'undefined') {
+    showToast('Bibliothèque PDF non chargée — vérifiez votre connexion', 'error');
+    return;
+  }
+
   const data = collectInvoiceData();
   if (!validateInvoice(data)) return;
 
@@ -848,11 +853,14 @@ function renderHistory() {
           ? '<span class="badge badge-invoice">Facture</span>'
           : '<span class="badge badge-quote">Devis</span>';
 
-      const statusBadge = {
-        draft: '<span class="badge badge-draft">Brouillon</span>',
-        sent: '<span class="badge badge-sent">Envoy\u00e9e</span>',
-        paid: '<span class="badge badge-paid">Pay\u00e9e</span>',
-      }[inv.status] || '';
+      const statusOptions = [
+        { value: 'draft', label: 'Brouillon' },
+        { value: 'sent', label: 'Envoy\u00e9e' },
+        { value: 'paid', label: 'Pay\u00e9e' },
+      ];
+      const statusSelect = `<select class="status-select status-${inv.status}" onchange="updateInvoiceStatus('${inv.id}', this.value)">
+        ${statusOptions.map(o => `<option value="${o.value}"${o.value === inv.status ? ' selected' : ''}>${o.label}</option>`).join('')}
+      </select>`;
 
       return `
         <tr>
@@ -861,7 +869,7 @@ function renderHistory() {
           <td>${formatDate(inv.date)}</td>
           <td>${escapeHTML(inv.client.name)}</td>
           <td class="cell-amount">${formatCurrency(inv.totals.totalTTC)}</td>
-          <td>${statusBadge}</td>
+          <td>${statusSelect}</td>
           <td class="cell-actions">
             <button class="btn btn-ghost" onclick="loadInvoiceIntoForm('${inv.id}')" title="Modifier">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -1122,16 +1130,14 @@ function init() {
   document.getElementById('btn-save-draft').addEventListener('click', () => saveInvoice('draft'));
   document.getElementById('btn-preview').addEventListener('click', showPreview);
   document.getElementById('btn-download').addEventListener('click', () => {
-    saveInvoice('draft');
-    downloadPDF();
+    if (saveInvoice('sent')) downloadPDF();
   });
 
   // Modal
   document.getElementById('modal-close').addEventListener('click', closePreview);
   document.getElementById('modal-download').addEventListener('click', () => {
     closePreview();
-    saveInvoice('draft');
-    downloadPDF();
+    if (saveInvoice('sent')) downloadPDF();
   });
   document.querySelector('.modal-overlay').addEventListener('click', closePreview);
 

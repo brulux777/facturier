@@ -698,6 +698,32 @@ body {
 .badge-sent { background: var(--color-primary-light); color: var(--color-primary); }
 .badge-paid { background: var(--color-success-light); color: var(--color-success); }
 
+.status-select {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.73rem;
+  font-weight: 600;
+  font-family: inherit;
+  border: none;
+  cursor: pointer;
+  appearance: auto;
+}
+
+.status-select.status-draft {
+  background: #f1f5f9;
+  color: var(--color-text-muted);
+}
+
+.status-select.status-sent {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.status-select.status-paid {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
 /* Client items */
 .client-item-info {
   display: flex;
