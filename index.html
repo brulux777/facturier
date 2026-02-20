@@ -241,6 +241,17 @@
       <section id="view-settings" class="view">
         <div class="view-header">
           <h2>Paramètres</h2>
+          <div class="view-actions">
+            <button type="button" id="btn-import-data" class="btn btn-sm btn-outline" title="Importer une sauvegarde">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Importer
+            </button>
+            <button type="button" id="btn-export-data" class="btn btn-sm btn-outline" title="Exporter toutes les données">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exporter
+            </button>
+            <input type="file" id="import-file-input" accept=".json" style="display:none;">
+          </div>
         </div>
 
         <form id="settings-form" autocomplete="off">
@@ -366,25 +377,6 @@
             </button>
           </div>
         </form>
-
-        <!-- Import / Export -->
-        <div class="card" style="margin-top:8px;">
-          <div class="card-header"><h3>Sauvegarde des données</h3></div>
-          <div class="card-body">
-            <p style="font-size:0.85rem;color:var(--color-text-secondary);margin-bottom:12px;">Exportez toutes vos données (paramètres, clients, factures) dans un fichier JSON, ou importez une sauvegarde précédente.</p>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              <button type="button" id="btn-export-data" class="btn btn-outline">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Exporter (JSON)
-              </button>
-              <button type="button" id="btn-import-data" class="btn btn-outline">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Importer (JSON)
-              </button>
-              <input type="file" id="import-file-input" accept=".json" style="display:none;">
-            </div>
-          </div>
-        </div>
       </section>
 
     </main>
