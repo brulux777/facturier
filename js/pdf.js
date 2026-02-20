@@ -191,7 +191,7 @@ function buildPdfDefinition(data) {
   // --- Header columns ---
   const leftCol = [];
   if (s.logo) {
-    leftCol.push({ image: s.logo, height: 50, margin: [0, 0, 0, 4] });
+    leftCol.push({ image: s.logo, fit: [180, 50], margin: [0, 0, 0, 4] });
   }
   leftCol.push({ text: s.companyName, fontSize: 13, bold: true, color: dark });
   companyLines.forEach((l) => leftCol.push({ text: l, fontSize: 9, color: gray }));
@@ -255,7 +255,7 @@ function buildPdfDefinition(data) {
   content.push({
     columns: [
       { width: '*', stack: leftCol },
-      { width: 'auto', stack: rightCol },
+      { width: 160, stack: rightCol },
     ],
     margin: [0, 0, 0, 24],
   });
