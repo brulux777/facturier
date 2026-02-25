@@ -18,6 +18,7 @@ function renderHistory() {
     invoices = invoices.filter(
       (i) =>
         i.number.toLowerCase().includes(search) ||
+        (i.title || '').toLowerCase().includes(search) ||
         i.client.name.toLowerCase().includes(search)
     );
   }
@@ -48,7 +49,7 @@ function renderHistory() {
           <td>${escapeHTML(inv.number)}</td>
           <td>${typeBadge}</td>
           <td>${formatDate(inv.date)}</td>
-          <td>${escapeHTML(inv.client.name)}</td>
+          <td>${inv.title ? `<div class="history-title">${escapeHTML(inv.title)}</div>` : ''}${escapeHTML(inv.client.name)}</td>
           <td class="cell-amount">${formatCurrency(inv.totals.totalTTC)}</td>
           <td>${statusSelect}</td>
           <td class="cell-actions">
@@ -74,7 +75,7 @@ function renderHistory() {
           <th>N\u00b0</th>
           <th>Type</th>
           <th>Date</th>
-          <th>Client</th>
+          <th>Titre / Client</th>
           <th>Montant TTC</th>
           <th>Statut</th>
           <th></th>
@@ -110,6 +111,7 @@ function duplicateInvoice(invoiceId) {
 
   if (inv.clientId) document.getElementById('client-select').value = inv.clientId;
 
+  document.getElementById('doc-title').value = inv.title || '';
   document.getElementById('doc-notes').value = inv.notes || '';
 
   currentLineItems = inv.items.map((item) => ({ ...item, id: generateId() }));

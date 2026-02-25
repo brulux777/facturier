@@ -184,6 +184,7 @@ function resetInvoiceForm() {
   document.getElementById('client-city').value = '';
   document.getElementById('client-siret').value = '';
 
+  document.getElementById('doc-title').value = '';
   document.getElementById('doc-notes').value = '';
 
   currentLineItems = [createEmptyLine()];
@@ -200,6 +201,7 @@ function loadInvoiceIntoForm(invoiceId) {
 
   document.getElementById('doc-type').value = inv.type;
   document.getElementById('doc-number').value = inv.number;
+  document.getElementById('doc-title').value = inv.title || '';
   document.getElementById('doc-date').value = inv.date;
   document.getElementById('doc-due-date').value = inv.dueDate || '';
 
@@ -227,6 +229,7 @@ function loadInvoiceIntoForm(invoiceId) {
 function collectInvoiceData() {
   const type = document.getElementById('doc-type').value;
   const number = document.getElementById('doc-number').value;
+  const title = document.getElementById('doc-title').value.trim();
   const date = document.getElementById('doc-date').value;
   const dueDate = document.getElementById('doc-due-date').value;
   const notes = document.getElementById('doc-notes').value.trim();
@@ -246,6 +249,7 @@ function collectInvoiceData() {
   return {
     type,
     number,
+    title,
     date,
     dueDate,
     client,
