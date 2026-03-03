@@ -117,26 +117,31 @@ function addLineItem() {
 // --- Calculations ---
 
 function calculateTotals() {
-  let totalHT = 0;
+  let totalHTBrut = 0;
   const tvaMap = {};
 
   currentLineItems.forEach((item) => {
     const lineHT = round2(item.quantity * item.unitPrice);
-    totalHT += lineHT;
+    totalHTBrut += lineHT;
 
     const rate = item.tvaRate;
     if (!tvaMap[rate]) tvaMap[rate] = 0;
     tvaMap[rate] += lineHT;
   });
 
-  totalHT = round2(totalHT);
+  totalHTBrut = round2(totalHTBrut);
+
+  const discountPercent = parseFloat(document.getElementById('doc-discount').value) || 0;
+  const discountAmount = round2(totalHTBrut * discountPercent / 100);
+  const totalHT = round2(totalHTBrut - discountAmount);
+  const discountFactor = totalHTBrut > 0 ? totalHT / totalHTBrut : 1;
 
   let totalTVA = 0;
   const tvaBreakdown = [];
   Object.keys(tvaMap)
     .sort((a, b) => parseFloat(a) - parseFloat(b))
     .forEach((rate) => {
-      const base = round2(tvaMap[rate]);
+      const base = round2(tvaMap[rate] * discountFactor);
       const tva = round2(base * (parseFloat(rate) / 100));
       totalTVA += tva;
       tvaBreakdown.push({ rate: parseFloat(rate), base, tva });
@@ -144,6 +149,17 @@ function calculateTotals() {
 
   totalTVA = round2(totalTVA);
   const totalTTC = round2(totalHT + totalTVA);
+
+  const hasDiscount = discountPercent > 0;
+
+  document.getElementById('total-ht-brut').textContent = formatCurrency(totalHTBrut);
+  document.getElementById('discount-row').style.display = hasDiscount ? '' : 'none';
+  document.getElementById('total-ht-net-row').style.display = hasDiscount ? '' : 'none';
+
+  if (hasDiscount) {
+    document.getElementById('discount-label').textContent = `Remise (${discountPercent}%)`;
+    document.getElementById('discount-amount').textContent = `- ${formatCurrency(discountAmount)}`;
+  }
 
   document.getElementById('total-ht').textContent = formatCurrency(totalHT);
   document.getElementById('total-ttc').textContent = formatCurrency(totalTTC);
@@ -160,7 +176,7 @@ function calculateTotals() {
     )
     .join('');
 
-  return { totalHT, totalTVA, totalTTC, tvaBreakdown };
+  return { totalHTBrut, discountPercent, discountAmount, totalHT, totalTVA, totalTTC, tvaBreakdown };
 }
 
 // --- Form ---
@@ -186,6 +202,7 @@ function resetInvoiceForm() {
 
   document.getElementById('doc-title').value = '';
   document.getElementById('doc-notes').value = '';
+  document.getElementById('doc-discount').value = '0';
 
   currentLineItems = [createEmptyLine()];
   renderLineItems();
@@ -217,6 +234,7 @@ function loadInvoiceIntoForm(invoiceId) {
   }
 
   document.getElementById('doc-notes').value = inv.notes || '';
+  document.getElementById('doc-discount').value = inv.discountPercent || 0;
 
   currentLineItems = inv.items.map((item) => ({ ...item, id: item.id || generateId() }));
   renderLineItems();
@@ -235,6 +253,8 @@ function collectInvoiceData() {
   const notes = document.getElementById('doc-notes').value.trim();
   const clientId = document.getElementById('client-select').value || null;
 
+  const discountPercent = parseFloat(document.getElementById('doc-discount').value) || 0;
+
   const client = {
     name: document.getElementById('client-name').value.trim(),
     email: document.getElementById('client-email').value.trim(),
@@ -252,6 +272,7 @@ function collectInvoiceData() {
     title,
     date,
     dueDate,
+    discountPercent,
     client,
     clientId,
     items: currentLineItems.map((item) => ({ ...item })),

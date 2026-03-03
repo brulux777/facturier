@@ -140,11 +140,22 @@ function buildInvoiceHTML(data) {
 
       <div style="display:flex;justify-content:flex-end;">
         <table style="border-collapse:collapse;min-width:260px;">
-          ${tvaExempt ? '' : `<tr>
-            <td style="padding:5px 10px;font-size:13px;color:#64748b;">Total HT</td>
-            <td style="padding:5px 10px;text-align:right;font-size:13px;font-weight:600;">${formatCurrency(data.totals.totalHT)}</td>
+          ${data.totals.discountPercent > 0 ? `<tr>
+            <td style="padding:5px 10px;font-size:13px;color:#64748b;">Total${tvaExempt ? '' : ' HT'} brut</td>
+            <td style="padding:5px 10px;text-align:right;font-size:13px;font-weight:600;">${formatCurrency(data.totals.totalHTBrut)}</td>
           </tr>
-          ${tvaRows}`}
+          <tr>
+            <td style="padding:5px 10px;font-size:13px;color:#dc2626;">Remise (${data.totals.discountPercent}%)</td>
+            <td style="padding:5px 10px;text-align:right;font-size:13px;color:#dc2626;font-weight:600;">- ${formatCurrency(data.totals.discountAmount)}</td>
+          </tr>
+          ${!tvaExempt ? `<tr>
+            <td style="padding:5px 10px;font-size:13px;color:#64748b;">Total HT net</td>
+            <td style="padding:5px 10px;text-align:right;font-size:13px;font-weight:600;">${formatCurrency(data.totals.totalHT)}</td>
+          </tr>` : ''}` : (!tvaExempt ? `<tr>
+            <td style="padding:5px 10px;font-size:13px;color:#64748b;">Total HT</td>
+            <td style="padding:5px 10px;text-align:right;font-size:13px;font-weight:600;">${formatCurrency(data.totals.totalHTBrut)}</td>
+          </tr>` : '')}
+          ${!tvaExempt ? tvaRows : ''}
           <tr style="border-top:2px solid #2563eb;">
             <td style="padding:10px;font-size:15px;font-weight:700;color:#1e293b;">${tvaExempt ? 'Total' : 'Total TTC'}</td>
             <td style="padding:10px;text-align:right;font-size:15px;font-weight:700;color:#2563eb;">${formatCurrency(data.totals.totalTTC)}</td>
@@ -245,12 +256,30 @@ function buildPdfDefinition(data) {
   });
 
   // --- Totals ---
+  const hasDiscount = data.totals.discountPercent > 0;
   const totalsBody = [];
-  if (!tvaExempt) {
+  if (hasDiscount) {
+    totalsBody.push([
+      { text: `Total${tvaExempt ? '' : ' HT'} brut`, fontSize: 9, color: gray },
+      { text: formatCurrency(data.totals.totalHTBrut), fontSize: 9, bold: true, alignment: 'right' },
+    ]);
+    totalsBody.push([
+      { text: `Remise (${data.totals.discountPercent}%)`, fontSize: 9, color: '#dc2626' },
+      { text: `- ${formatCurrency(data.totals.discountAmount)}`, fontSize: 9, color: '#dc2626', alignment: 'right' },
+    ]);
+    if (!tvaExempt) {
+      totalsBody.push([
+        { text: 'Total HT net', fontSize: 9, color: gray },
+        { text: formatCurrency(data.totals.totalHT), fontSize: 9, bold: true, alignment: 'right' },
+      ]);
+    }
+  } else if (!tvaExempt) {
     totalsBody.push([
       { text: 'Total HT', fontSize: 9, color: gray },
-      { text: formatCurrency(data.totals.totalHT), fontSize: 9, bold: true, alignment: 'right' },
+      { text: formatCurrency(data.totals.totalHTBrut), fontSize: 9, bold: true, alignment: 'right' },
     ]);
+  }
+  if (!tvaExempt) {
     data.totals.tvaBreakdown.forEach((b) => {
       totalsBody.push([
         { text: `TVA ${b.rate}% (sur ${formatCurrency(b.base)})`, fontSize: 9, color: gray },

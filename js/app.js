@@ -39,6 +39,9 @@ function init() {
   document.getElementById('doc-type').addEventListener('change', handleDocTypeChange);
   document.getElementById('doc-date').addEventListener('change', handleDateChange);
 
+  // Discount
+  document.getElementById('doc-discount').addEventListener('input', calculateTotals);
+
   // Edit invoice number
   document.getElementById('btn-edit-number').addEventListener('click', toggleEditNumber);
 
