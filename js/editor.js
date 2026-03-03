@@ -151,16 +151,21 @@ function calculateTotals() {
   const totalTTC = round2(totalHT + totalTVA);
 
   const hasDiscount = discountPercent > 0;
+  const tvaExempt = !!state.settings.tvaExempt;
+  const htSuffix = tvaExempt ? '' : ' HT';
 
+  document.getElementById('total-ht-brut-label').textContent = hasDiscount ? `Total${htSuffix} brut` : `Total${htSuffix}`;
   document.getElementById('total-ht-brut').textContent = formatCurrency(totalHTBrut);
   document.getElementById('discount-row').style.display = hasDiscount ? '' : 'none';
-  document.getElementById('total-ht-net-row').style.display = hasDiscount ? '' : 'none';
+  document.getElementById('total-ht-net-row').style.display = hasDiscount && !tvaExempt ? '' : 'none';
 
   if (hasDiscount) {
     document.getElementById('discount-label').textContent = `Remise (${discountPercent}%)`;
     document.getElementById('discount-amount').textContent = `- ${formatCurrency(discountAmount)}`;
+    document.getElementById('total-ht-net-label').textContent = `Total${htSuffix} net`;
   }
 
+  document.getElementById('total-final-label').textContent = tvaExempt ? 'Total' : 'Total TTC';
   document.getElementById('total-ht').textContent = formatCurrency(totalHT);
   document.getElementById('total-ttc').textContent = formatCurrency(totalTTC);
 
