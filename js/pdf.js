@@ -109,7 +109,6 @@ function buildInvoiceHTML(data) {
         <div style="text-align:right;">
           <div style="font-size:22px;font-weight:700;color:#2563eb;letter-spacing:0.02em;">${typeLabel}</div>
           <div style="font-size:14px;font-weight:600;color:#1e293b;margin-top:4px;">N\u00b0 ${escapeHTML(data.number)}</div>
-          ${data.title ? `<div style="font-size:12px;color:#475569;font-style:italic;margin-top:4px;">${escapeHTML(data.title)}</div>` : ''}
           <div style="font-size:12px;color:#64748b;margin-top:4px;">Date : ${formatDate(data.date)}</div>
           ${data.dueDate ? `<div style="font-size:12px;color:#64748b;">\u00c9ch\u00e9ance : ${formatDate(data.dueDate)}</div>` : ''}
         </div>
@@ -121,6 +120,8 @@ function buildInvoiceHTML(data) {
         ${clientLines.map((l) => `<div style="font-size:12px;color:#475569;">${escapeHTML(l)}</div>`).join('')}
         ${c.siret ? `<div style="font-size:11px;color:#94a3b8;margin-top:4px;">SIRET: ${escapeHTML(c.siret)}</div>` : ''}
       </div>
+
+      ${data.title ? `<div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:16px;">${escapeHTML(data.title)}</div>` : ''}
 
       <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
         <thead>
@@ -211,7 +212,6 @@ function buildPdfDefinition(data) {
   const rightCol = [];
   rightCol.push({ text: typeLabel, fontSize: 20, bold: true, color: blue, alignment: 'right' });
   rightCol.push({ text: `N\u00b0 ${data.number}`, fontSize: 12, bold: true, color: dark, alignment: 'right', margin: [0, 4, 0, 0] });
-  if (data.title) rightCol.push({ text: data.title, fontSize: 9, italics: true, color: '#475569', alignment: 'right', margin: [0, 3, 0, 0] });
   rightCol.push({ text: `Date : ${formatDate(data.date)}`, fontSize: 9, color: gray, alignment: 'right', margin: [0, 4, 0, 0] });
   if (data.dueDate) rightCol.push({ text: `\u00c9ch\u00e9ance : ${formatDate(data.dueDate)}`, fontSize: 9, color: gray, alignment: 'right' });
 
@@ -287,6 +287,10 @@ function buildPdfDefinition(data) {
     ],
     margin: [0, 0, 0, 20],
   });
+
+  if (data.title) {
+    content.push({ text: data.title, fontSize: 14, bold: true, color: dark, margin: [0, 0, 0, 12] });
+  }
 
   content.push({
     table: {
