@@ -35,6 +35,9 @@ let state = {
 };
 
 function loadState() {
+  // Mode serveur : l'état vient du serveur (syncBootstrap) — ne JAMAIS
+  // le relire/écraser depuis le localStorage (stale chez l'utilisateur).
+  if (typeof SERVER_MODE !== 'undefined' && SERVER_MODE) return;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
