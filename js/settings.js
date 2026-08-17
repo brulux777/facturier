@@ -19,6 +19,8 @@ function loadSettingsForm() {
   form.elements.defaultPaymentTerms.value = s.defaultPaymentTerms;
   form.elements.defaultPaymentDelay.value = s.defaultPaymentDelay;
   form.elements.defaultTva.value = s.defaultTva;
+  form.elements.defaultCdcMode.value = s.defaultCdcMode || 'inline';
+  form.elements.defaultPayment3x.checked = !!s.defaultPayment3x;
   form.elements.tvaExempt.checked = !!s.tvaExempt;
   form.elements.invoicePrefix.value = s.invoicePrefix;
   form.elements.quotePrefix.value = s.quotePrefix;
@@ -118,6 +120,8 @@ function syncSettingsFromForm() {
   state.settings.defaultPaymentTerms = form.elements.defaultPaymentTerms.value.trim();
   state.settings.defaultPaymentDelay = parseInt(form.elements.defaultPaymentDelay.value) || 30;
   state.settings.defaultTva = parseFloat(form.elements.defaultTva.value) || 20;
+  state.settings.defaultCdcMode = form.elements.defaultCdcMode.value || 'inline';
+  state.settings.defaultPayment3x = form.elements.defaultPayment3x.checked;
   state.settings.tvaExempt = form.elements.tvaExempt.checked;
   state.settings.invoicePrefix = form.elements.invoicePrefix.value.trim() || 'F';
   state.settings.quotePrefix = form.elements.quotePrefix.value.trim() || 'D';

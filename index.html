@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
   <div id="app">
@@ -426,6 +426,24 @@
                   <input type="text" id="s-quote-prefix" name="quotePrefix" value="D">
                 </div>
               </div>
+              <div class="form-row cols-2">
+                <div class="form-group">
+                  <label for="s-cdc-mode">Cahier des charges — emplacement par défaut</label>
+                  <select id="s-cdc-mode" name="defaultCdcMode">
+                    <option value="inline">Dans la facture (après les totaux)</option>
+                    <option value="annex">Hors facture — annexe dans le même PDF</option>
+                    <option value="separate">Hors facture — PDF séparé (2e fichier)</option>
+                  </select>
+                  <small class="form-hint">Appliqué aux nouveaux documents — reste modifiable par document (onglet Cahier des charges)</small>
+                </div>
+                <div class="form-group form-group-checkbox">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="s-payment-3x" name="defaultPayment3x">
+                    <span>Paiement en 3 fois par défaut</span>
+                  </label>
+                  <small class="form-hint">Pré-active l'échéancier en 3 mensualités sur les nouveaux documents</small>
+                </div>
+              </div>
               <div class="form-group">
                 <label for="s-legal">Mentions légales</label>
                 <textarea id="s-legal" name="legalMentions" rows="4">En cas de retard de paiement, une pénalité de 3 fois le taux d'intérêt légal sera appliquée, ainsi qu'une indemnité forfaitaire de 40 € pour frais de recouvrement. Pas d'escompte en cas de paiement anticipé.</textarea>
@@ -481,14 +499,14 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
-  <script src="js/state.js?v=12"></script>
-  <script src="js/server-sync.js?v=12"></script>
-  <script src="js/markdown.js?v=12"></script>
-  <script src="js/settings.js?v=12"></script>
-  <script src="js/clients.js?v=12"></script>
-  <script src="js/editor.js?v=12"></script>
-  <script src="js/pdf.js?v=12"></script>
-  <script src="js/history.js?v=12"></script>
-  <script src="js/app.js?v=12"></script>
+  <script src="js/state.js?v=13"></script>
+  <script src="js/server-sync.js?v=13"></script>
+  <script src="js/markdown.js?v=13"></script>
+  <script src="js/settings.js?v=13"></script>
+  <script src="js/clients.js?v=13"></script>
+  <script src="js/editor.js?v=13"></script>
+  <script src="js/pdf.js?v=13"></script>
+  <script src="js/history.js?v=13"></script>
+  <script src="js/app.js?v=13"></script>
 </body>
 </html>

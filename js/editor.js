@@ -336,8 +336,8 @@ function resetInvoiceForm() {
   document.getElementById('doc-title').value = '';
   document.getElementById('doc-notes').value = '';
   document.getElementById('doc-discount').value = '0';
-  document.getElementById('doc-payment-3x').checked = false;
-  document.getElementById('cdc-mode').value = 'inline';
+  document.getElementById('doc-payment-3x').checked = !!state.settings.defaultPayment3x;
+  document.getElementById('cdc-mode').value = state.settings.defaultCdcMode || 'inline';
 
   currentLineItems = [createEmptyLine()];
   resetCahierDesCharges();
