@@ -1127,9 +1127,9 @@ body.login-page {
 }
 
 /* ============================================
-   MODE PRESTATIONS (simple / avancé)
+   PRESTATIONS : onglets (Prestations / Cahier des charges)
    ============================================ */
-.mode-toggle {
+.panes-tabs {
   display: inline-flex;
   gap: 2px;
   padding: 2px;
@@ -1138,7 +1138,7 @@ body.login-page {
   background: var(--color-bg);
 }
 
-.mode-toggle .mode-btn {
+.panes-tabs .tab-btn {
   border: none;
   background: transparent;
   padding: 5px 14px;
@@ -1150,11 +1150,11 @@ body.login-page {
   transition: var(--transition);
 }
 
-.mode-toggle .mode-btn:hover {
+.panes-tabs .tab-btn:hover {
   color: var(--color-text);
 }
 
-.mode-toggle .mode-btn.active {
+.panes-tabs .tab-btn.active {
   background: var(--color-surface);
   color: var(--color-primary);
   box-shadow: var(--shadow-sm);
@@ -1171,7 +1171,7 @@ body.login-page {
   cursor: pointer;
 }
 
-/* --- Mode avancé : dropzone Markdown + zone d'édition --- */
+/* --- Cahier des charges : dropzone Markdown + zone d'édition --- */
 .md-dropzone {
   display: flex;
   flex-direction: column;
@@ -1209,10 +1209,10 @@ body.login-page {
   color: var(--color-text);
 }
 
-#adv-markdown {
+#cdc-markdown {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.82rem;
   line-height: 1.5;
-  min-height: 180px;
+  min-height: 220px;
 }
 

@@ -50,8 +50,8 @@ function init() {
     }
   });
 
-  // Mode de saisie (simple / avancé) + dropzone Markdown
-  initAdvancedMode();
+  // Onglets Prestations / Cahier des charges + dropzone Markdown
+  initPrestationsTabs();
 
   // Actions
   document.getElementById('btn-save-draft').addEventListener('click', () => saveInvoice('draft'));

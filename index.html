@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <div id="app">
@@ -139,19 +139,19 @@
             </div>
           </div>
 
-          <!-- Line Items / Mode avancé -->
+          <!-- Prestations / Cahier des charges -->
           <div class="card">
             <div class="card-header">
               <h3>Prestations</h3>
               <div class="card-actions">
-                <div class="mode-toggle" id="editor-mode-toggle">
-                  <button type="button" class="mode-btn active" data-mode="simple" title="Prestations ligne par ligne (quantité, prix unitaire, TVA)">Simple</button>
-                  <button type="button" class="mode-btn" data-mode="advanced" title="Montant total + contenu Markdown détaillé">Avancé</button>
+                <div class="panes-tabs" id="prestations-tabs">
+                  <button type="button" class="tab-btn active" data-tab="items" title="Lignes de prestations : description, quantité, prix unitaire, TVA">Prestations</button>
+                  <button type="button" class="tab-btn" data-tab="cdc" title="Cahier des charges / explication détaillée, joint après les totaux de la facture">Cahier des charges</button>
                 </div>
               </div>
             </div>
             <div class="card-body">
-              <div id="mode-simple-panel">
+              <div id="pane-items">
                 <div class="line-items-header">
                   <span class="li-desc">Description</span>
                   <span class="li-qty">Qté</span>
@@ -168,26 +168,16 @@
                   Ajouter une ligne
                 </button>
               </div>
-              <div id="mode-advanced-panel" hidden>
-                <div class="form-row cols-2">
-                  <div class="form-group">
-                    <label for="adv-amount" id="adv-amount-label">Montant total TTC (€)</label>
-                    <input type="number" id="adv-amount" min="0" step="0.01" placeholder="0,00">
-                  </div>
-                  <div class="form-group">
-                    <label for="adv-tva">Taux TVA (%)</label>
-                    <input type="number" id="adv-tva" min="0" max="100" step="0.1">
-                  </div>
-                </div>
+              <div id="pane-cdc" hidden>
                 <div class="form-group">
-                  <label for="adv-markdown">Contenu de la facture (Markdown)</label>
+                  <label for="cdc-markdown">Cahier des charges / explication de la facture (Markdown, optionnel)</label>
                   <div class="md-dropzone" id="md-dropzone">
                     <input type="file" id="md-file-input" accept=".md,.markdown,.txt" hidden>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     <p>Glissez-déposez un fichier <strong>.md</strong> ici ou <button type="button" id="btn-choose-md" class="btn-link">choisissez un fichier</button></p>
-                    <small class="form-hint">Titres, listes, gras/italique, code, tableaux et liens pris en charge — le contenu reste éditable ci-dessous.</small>
+                    <small class="form-hint">Titres, listes, gras/italique, code, tableaux et liens pris en charge — le contenu reste éditable ci-dessous et est inséré dans la facture après les totaux.</small>
                   </div>
-                  <textarea id="adv-markdown" rows="10" spellcheck="false" placeholder="# Détail de la prestation&#10;&#10;- Analyse du besoin&#10;- Développement&#10;&#10;## Livrables&#10;&#10;| Élément | Quantité |&#10;| --- | --- |&#10;| Rapport | 1 |"></textarea>
+                  <textarea id="cdc-markdown" rows="12" spellcheck="false" placeholder="# Contexte&#10;&#10;Description de la mission…&#10;&#10;## Livrables&#10;&#10;| Élément | Quantité |&#10;| --- | --- |&#10;| Rapport | 1 |"></textarea>
                 </div>
               </div>
             </div>
@@ -475,14 +465,14 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
-  <script src="js/state.js?v=9"></script>
-  <script src="js/server-sync.js?v=9"></script>
-  <script src="js/markdown.js?v=9"></script>
-  <script src="js/settings.js?v=9"></script>
-  <script src="js/clients.js?v=9"></script>
-  <script src="js/editor.js?v=9"></script>
-  <script src="js/pdf.js?v=9"></script>
-  <script src="js/history.js?v=9"></script>
-  <script src="js/app.js?v=9"></script>
+  <script src="js/state.js?v=10"></script>
+  <script src="js/server-sync.js?v=10"></script>
+  <script src="js/markdown.js?v=10"></script>
+  <script src="js/settings.js?v=10"></script>
+  <script src="js/clients.js?v=10"></script>
+  <script src="js/editor.js?v=10"></script>
+  <script src="js/pdf.js?v=10"></script>
+  <script src="js/history.js?v=10"></script>
+  <script src="js/app.js?v=10"></script>
 </body>
 </html>

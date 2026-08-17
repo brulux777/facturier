@@ -3,8 +3,6 @@
    ============================================ */
 let currentLineItems = [];
 let editingInvoiceId = null;
-// Mode de saisie des prestations : 'simple' (lignes) ou 'advanced' (montant + Markdown)
-let currentMode = 'simple';
 
 // --- Invoice Number ---
 
@@ -116,80 +114,25 @@ function addLineItem() {
   if (lastInput) lastInput.focus();
 }
 
-// --- Mode de saisie (simple / avancé) ---
+// --- Onglets Prestations / Cahier des charges ---
+// Les deux panneaux font partie du même document : la bascule ne
+// masque rien de façon destructive, tout est conservé et enregistré.
 
-function getAdvancedPanelData() {
-  return {
-    amount: parseFloat(document.getElementById('adv-amount').value) || 0,
-    tvaRate: parseFloat(document.getElementById('adv-tva').value) || 0,
-    markdown: document.getElementById('adv-markdown').value,
-  };
-}
-
-function simplePanelHasData() {
-  return currentLineItems.some(
-    (it) => it.description.trim() || round2(it.quantity * it.unitPrice) > 0
-  );
-}
-
-function advancedPanelHasData() {
-  const d = getAdvancedPanelData();
-  return d.amount > 0 || d.markdown.trim().length > 0;
-}
-
-function resetAdvancedTva() {
-  document.getElementById('adv-tva').value = state.settings.tvaExempt
-    ? 0
-    : state.settings.defaultTva;
-}
-
-function clearAdvancedFields() {
-  document.getElementById('adv-amount').value = '';
-  document.getElementById('adv-markdown').value = '';
-  resetAdvancedTva();
-}
-
-function refreshEditorModeUI() {
+function switchPrestationsTab(tab) {
+  const isItems = tab !== 'cdc'; // 'items' par défaut
   document
-    .querySelectorAll('#editor-mode-toggle .mode-btn')
-    .forEach((b) => b.classList.toggle('active', b.dataset.mode === currentMode));
-  document.getElementById('mode-simple-panel').hidden = currentMode !== 'simple';
-  document.getElementById('mode-advanced-panel').hidden = currentMode !== 'advanced';
-
-  // Libellé du montant et champ TVA selon l'assujettissement
-  const exempt = !!state.settings.tvaExempt;
-  document.getElementById('adv-amount-label').textContent = exempt
-    ? 'Montant total (€)'
-    : 'Montant total TTC (€)';
-  document.getElementById('adv-tva').disabled = exempt;
+    .querySelectorAll('#prestations-tabs .tab-btn')
+    .forEach((b) => b.classList.toggle('active', (b.dataset.tab === 'cdc') !== isItems));
+  document.getElementById('pane-items').hidden = !isItems;
+  document.getElementById('pane-cdc').hidden = isItems;
 }
 
-function setEditorMode(mode, opts = {}) {
-  if (mode !== 'advanced') mode = 'simple';
-  if (mode === currentMode) {
-    refreshEditorModeUI();
-    return;
-  }
-  if (!opts.force) {
-    const losingData = mode === 'advanced' ? simplePanelHasData() : advancedPanelHasData();
-    if (losingData) {
-      const msg =
-        mode === 'advanced'
-          ? 'Passer en mode avancé supprimera les prestations saisies. Continuer ?'
-          : 'Revenir en mode simple supprimera le montant et le contenu Markdown. Continuer ?';
-      if (!confirm(msg)) return;
-    }
-  }
-  currentMode = mode;
-  if (mode === 'advanced') {
-    currentLineItems = [];
-    resetAdvancedTva();
-  } else {
-    clearAdvancedFields();
-    currentLineItems = [createEmptyLine()];
-  }
-  refreshEditorModeUI();
-  renderLineItems();
+function getCahierDesCharges() {
+  return document.getElementById('cdc-markdown').value;
+}
+
+function resetCahierDesCharges() {
+  document.getElementById('cdc-markdown').value = '';
 }
 
 function loadMarkdownFile(file) {
@@ -199,20 +142,17 @@ function loadMarkdownFile(file) {
   }
   const reader = new FileReader();
   reader.onload = () => {
-    document.getElementById('adv-markdown').value = String(reader.result || '');
+    document.getElementById('cdc-markdown').value = String(reader.result || '');
     showToast(`« ${file.name} » chargé`);
   };
   reader.onerror = () => showToast('Impossible de lire le fichier', 'error');
   reader.readAsText(file);
 }
 
-function initAdvancedMode() {
-  document.querySelectorAll('#editor-mode-toggle .mode-btn').forEach((btn) => {
-    btn.addEventListener('click', () => setEditorMode(btn.dataset.mode));
+function initPrestationsTabs() {
+  document.querySelectorAll('#prestations-tabs .tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => switchPrestationsTab(btn.dataset.tab));
   });
-
-  document.getElementById('adv-amount').addEventListener('input', calculateTotals);
-  document.getElementById('adv-tva').addEventListener('input', calculateTotals);
 
   const dropzone = document.getElementById('md-dropzone');
   const fileInput = document.getElementById('md-file-input');
@@ -253,8 +193,6 @@ function initAdvancedMode() {
 // --- Calculations ---
 
 function calculateTotals() {
-  if (currentMode === 'advanced') return calculateAdvancedTotals();
-
   let totalHTBrut = 0;
   const tvaMap = {};
 
@@ -287,28 +225,6 @@ function calculateTotals() {
 
   totalTVA = round2(totalTVA);
   const totalTTC = round2(totalHT + totalTVA);
-
-  const totals = { totalHTBrut, discountPercent, discountAmount, totalHT, totalTVA, totalTTC, tvaBreakdown };
-  updateTotalsDOM(totals);
-  return totals;
-}
-
-// Mode avancé : le montant saisi est le total final (TTC si TVA applicable).
-// La remise « dégrossit » le HT : TTC = montant saisi, HT net = TTC / (1 + taux),
-// HT brut = HT net avant remise.
-function calculateAdvancedTotals() {
-  const tvaExempt = !!state.settings.tvaExempt;
-  const adv = getAdvancedPanelData();
-  const rate = tvaExempt ? 0 : adv.tvaRate;
-  const discountPercent = parseFloat(document.getElementById('doc-discount').value) || 0;
-
-  const totalTTC = round2(adv.amount);
-  const totalHT = round2(totalTTC / (1 + rate / 100));
-  const totalTVA = round2(totalTTC - totalHT);
-  const hasDiscount = discountPercent > 0;
-  const totalHTBrut = hasDiscount ? round2(totalHT / (1 - discountPercent / 100)) : totalHT;
-  const discountAmount = round2(totalHTBrut - totalHT);
-  const tvaBreakdown = tvaExempt ? [] : [{ rate, base: totalHT, tva: totalTVA }];
 
   const totals = { totalHTBrut, discountPercent, discountAmount, totalHT, totalTVA, totalTTC, tvaBreakdown };
   updateTotalsDOM(totals);
@@ -374,9 +290,8 @@ function resetInvoiceForm() {
   document.getElementById('doc-discount').value = '0';
 
   currentLineItems = [createEmptyLine()];
-  clearAdvancedFields();
-  currentMode = 'simple';
-  refreshEditorModeUI();
+  resetCahierDesCharges();
+  switchPrestationsTab('items');
   renderLineItems();
 
   document.querySelector('.view-header h2').textContent = 'Nouveau document';
@@ -408,23 +323,9 @@ function loadInvoiceIntoForm(invoiceId) {
   document.getElementById('doc-notes').value = inv.notes || '';
   document.getElementById('doc-discount').value = inv.discountPercent || 0;
 
-  const isAdvanced = inv.mode === 'advanced' && inv.advanced;
-  if (isAdvanced) {
-    document.getElementById('adv-amount').value = inv.advanced.amount || '';
-    document.getElementById('adv-tva').value =
-      inv.advanced.tvaRate !== undefined && inv.advanced.tvaRate !== null
-        ? inv.advanced.tvaRate
-        : state.settings.tvaExempt
-          ? 0
-          : state.settings.defaultTva;
-    document.getElementById('adv-markdown').value = inv.advanced.markdown || '';
-    currentLineItems = [];
-  } else {
-    currentLineItems = (inv.items || []).map((item) => ({ ...item, id: item.id || generateId() }));
-    clearAdvancedFields();
-  }
-  currentMode = isAdvanced ? 'advanced' : 'simple';
-  refreshEditorModeUI();
+  currentLineItems = (inv.items || []).map((item) => ({ ...item, id: item.id || generateId() }));
+  document.getElementById('cdc-markdown').value = inv.cahierDesCharges || '';
+  switchPrestationsTab('items');
   renderLineItems();
 
   document.querySelector('.view-header h2').textContent =
@@ -463,9 +364,8 @@ function collectInvoiceData() {
     discountPercent,
     client,
     clientId,
-    mode: currentMode,
-    advanced: currentMode === 'advanced' ? getAdvancedPanelData() : null,
-    items: currentMode === 'advanced' ? [] : currentLineItems.map((item) => ({ ...item })),
+    items: currentLineItems.map((item) => ({ ...item })),
+    cahierDesCharges: getCahierDesCharges(),
     notes,
     totals,
     settings: { ...state.settings },
@@ -474,14 +374,13 @@ function collectInvoiceData() {
 
 function validateInvoice(data) {
   // Aucun champ obligatoire : on bloque seulement un document totalement vide
-  // (aucun client, aucun titre, aucune ligne, aucun montant ni contenu) pour
+  // (aucun client, aucun titre, aucune ligne, aucun cahier des charges) pour
   // éviter les enregistrements accidentels d'un formulaire jamais rempli.
   const hasAnything =
     (data.client && (data.client.name || data.client.email || data.client.address)) ||
     (data.title && data.title.trim()) ||
-    (data.mode === 'advanced'
-      ? !!(data.advanced && (data.advanced.amount > 0 || data.advanced.markdown.trim()))
-      : data.items.some((i) => i.description.trim()));
+    (data.cahierDesCharges && data.cahierDesCharges.trim()) ||
+    data.items.some((i) => i.description.trim());
   if (!hasAnything) {
     showToast('Document vide — rien à enregistrer', 'error');
     return false;
