@@ -222,14 +222,30 @@
                     <span id="total-ht">0,00 €</span>
                   </div>
                   <div id="tva-breakdown"></div>
-                  <div id="installments-preview" hidden></div>
                   <div class="totals-row totals-row-final">
                     <span id="total-final-label">Total TTC</span>
                     <span id="total-ttc">0,00 €</span>
                   </div>
+                  <div class="totals-row" id="acompte-row" style="display:none;">
+                    <span id="acompte-label">Acompte</span>
+                    <span id="acompte-amount">0,00 €</span>
+                  </div>
+                  <div class="totals-row totals-row-net" id="net-a-payer-row" style="display:none;">
+                    <span>Net à payer</span>
+                    <span id="net-a-payer">0,00 €</span>
+                  </div>
+                  <div id="installments-preview" hidden></div>
                   <div class="totals-discount-input">
                     <label for="doc-discount">Remise globale (%)</label>
                     <input type="number" id="doc-discount" name="discount" value="0" min="0" max="100" step="0.1">
+                  </div>
+                  <div class="totals-discount-input">
+                    <label for="doc-acompte-amount" id="acompte-amount-label">Acompte déjà perçu (€)</label>
+                    <input type="number" id="doc-acompte-amount" value="0" min="0" step="0.01">
+                  </div>
+                  <div class="totals-discount-input" id="acompte-date-group" style="display:none;">
+                    <label for="doc-acompte-date">Acompte versé le</label>
+                    <input type="date" id="doc-acompte-date">
                   </div>
                   <div class="totals-discount-input">
                     <label class="checkbox-label" for="doc-payment-3x">

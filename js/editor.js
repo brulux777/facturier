@@ -222,7 +222,10 @@ function updateInstallmentsUI(t) {
     document.getElementById('doc-due-date').value ||
     document.getElementById('doc-date').value ||
     todayISO();
-  box.innerHTML = computeInstallments3x(t.totalTTC, startDate)
+  // L'échéancier porte sur le reste dû : net à payer si un acompte
+  // est déjà déduit (facture), sinon le total TTC.
+  const base = t.netAPayer != null ? t.netAPayer : t.totalTTC;
+  box.innerHTML = computeInstallments3x(base, startDate)
     .map(
       (e) => `
       <div class="totals-row">
@@ -232,6 +235,25 @@ function updateInstallmentsUI(t) {
     `
     )
     .join('');
+}
+
+// --- Acompte ---
+// Devis : acompte demandé → simple mention (pourcentage calculé), rien déduit.
+// Facture : acompte déjà perçu → déduit du Total TTC, avec net à payer.
+
+function formatPercentValue(p) {
+  if (!p || p <= 0) return '';
+  const rounded = Math.round(p * 10) / 10;
+  return `${String(rounded).replace('.', ',')} %`;
+}
+
+// Libellés / visibilité des champs acompte selon le type de document
+function updateAcompteFieldsUI() {
+  const isInvoice = document.getElementById('doc-type').value === 'invoice';
+  document.getElementById('acompte-amount-label').textContent = isInvoice
+    ? 'Acompte déjà perçu (€)'
+    : 'Acompte demandé (€)';
+  document.getElementById('acompte-date-group').style.display = isInvoice ? '' : 'none';
 }
 
 // --- Calculations ---
@@ -270,7 +292,29 @@ function calculateTotals() {
   totalTVA = round2(totalTVA);
   const totalTTC = round2(totalHT + totalTVA);
 
-  const totals = { totalHTBrut, discountPercent, discountAmount, totalHT, totalTVA, totalTTC, tvaBreakdown };
+  // Acompte : plafonné au total TTC (jamais négatif, jamais supérieur au dû).
+  // En facture il est déduit (net à payer) ; en devis c'est une mention.
+  const isInvoice = document.getElementById('doc-type').value === 'invoice';
+  const acompteEntered = round2(parseFloat(document.getElementById('doc-acompte-amount').value) || 0);
+  const acompteDate = document.getElementById('doc-acompte-date').value || '';
+  const acompte = Math.max(0, Math.min(acompteEntered, totalTTC));
+  const acomptePercent = totalTTC > 0 && acompte > 0 ? round2((acompte / totalTTC) * 100) : 0;
+  const netAPayer = isInvoice && acompte > 0 ? round2(totalTTC - acompte) : null;
+
+  const totals = {
+    totalHTBrut,
+    discountPercent,
+    discountAmount,
+    totalHT,
+    totalTVA,
+    totalTTC,
+    tvaBreakdown,
+    isInvoice,
+    acompte,
+    acomptePercent,
+    acompteDate,
+    netAPayer,
+  };
   updateTotalsDOM(totals);
   return totals;
 }
@@ -294,6 +338,30 @@ function updateTotalsDOM(t) {
   document.getElementById('total-final-label').textContent = 'Total TTC';
   document.getElementById('total-ht').textContent = formatCurrency(t.totalHT);
   document.getElementById('total-ttc').textContent = formatCurrency(t.totalTTC);
+
+  // Acompte : déduction rouge (facture) ou mention informative (devis),
+  // suivie du net à payer en facture uniquement.
+  const acompteRow = document.getElementById('acompte-row');
+  if (t.acompte > 0) {
+    acompteRow.style.display = '';
+    acompteRow.classList.toggle('totals-row-discount', t.isInvoice);
+    document.getElementById('acompte-label').textContent = t.isInvoice
+      ? `Acompte versé${t.acompteDate ? ` le ${formatDate(t.acompteDate)}` : ''}`
+      : `Acompte à la commande${formatPercentValue(t.acomptePercent) ? ` (${formatPercentValue(t.acomptePercent)})` : ''}`;
+    document.getElementById('acompte-amount').textContent = t.isInvoice
+      ? `- ${formatCurrency(t.acompte)}`
+      : formatCurrency(t.acompte);
+  } else {
+    acompteRow.style.display = 'none';
+  }
+
+  const netRow = document.getElementById('net-a-payer-row');
+  if (t.isInvoice && t.acompte > 0 && t.netAPayer != null) {
+    netRow.style.display = '';
+    document.getElementById('net-a-payer').textContent = formatCurrency(t.netAPayer);
+  } else {
+    netRow.style.display = 'none';
+  }
 
   const breakdownEl = document.getElementById('tva-breakdown');
   breakdownEl.innerHTML = state.settings.tvaExempt
@@ -336,6 +404,9 @@ function resetInvoiceForm() {
   document.getElementById('doc-title').value = '';
   document.getElementById('doc-notes').value = '';
   document.getElementById('doc-discount').value = '0';
+  document.getElementById('doc-acompte-amount').value = '0';
+  document.getElementById('doc-acompte-date').value = '';
+  updateAcompteFieldsUI();
   document.getElementById('doc-payment-3x').checked = !!state.settings.defaultPayment3x;
   document.getElementById('cdc-mode').value = state.settings.defaultCdcMode || 'inline';
 
@@ -372,6 +443,9 @@ function loadInvoiceIntoForm(invoiceId) {
 
   document.getElementById('doc-notes').value = inv.notes || '';
   document.getElementById('doc-discount').value = inv.discountPercent || 0;
+  document.getElementById('doc-acompte-amount').value = inv.acompteAmount || 0;
+  document.getElementById('doc-acompte-date').value = inv.acompteDate || '';
+  updateAcompteFieldsUI();
   document.getElementById('doc-payment-3x').checked = !!inv.payment3x;
   document.getElementById('cdc-mode').value = inv.cdcMode || 'inline';
 
@@ -395,6 +469,8 @@ function collectInvoiceData() {
   const clientId = document.getElementById('client-select').value || null;
 
   const discountPercent = parseFloat(document.getElementById('doc-discount').value) || 0;
+  const acompteAmount = round2(parseFloat(document.getElementById('doc-acompte-amount').value) || 0);
+  const acompteDate = document.getElementById('doc-acompte-date').value || '';
   const payment3x = document.getElementById('doc-payment-3x').checked;
   const cdcMode = document.getElementById('cdc-mode').value;
 
@@ -416,6 +492,8 @@ function collectInvoiceData() {
     date,
     dueDate,
     discountPercent,
+    acompteAmount,
+    acompteDate,
     payment3x,
     cdcMode,
     client,
@@ -486,6 +564,10 @@ function handleDocTypeChange() {
   if (!editingInvoiceId) {
     document.getElementById('doc-number').value = generateInvoiceNumber(type);
   }
+  // Le sens de l'acompte change avec le type (demandé en devis,
+  // déduit en facture) : rafraîchir libellés et lignes de totaux.
+  updateAcompteFieldsUI();
+  calculateTotals();
 }
 
 function handleDateChange() {

@@ -582,6 +582,26 @@ body {
   color: var(--color-danger);
 }
 
+/* Ligne « Net à payer » (facture avec acompte déduit) :
+   même poids visuel que le Total TTC, l'acompte entre les deux. */
+.totals-row-net {
+  border-top: 2px solid var(--color-primary);
+  margin-top: 6px;
+  padding-top: 10px;
+  font-size: 1.05rem;
+}
+
+.totals-row-net span:first-child {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.totals-row-net span:last-child {
+  color: var(--color-primary);
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
 .totals-discount-input {
   margin-top: 14px;
   padding-top: 12px;

@@ -59,11 +59,39 @@ function buildInvoiceHTML(data) {
     )
     .join('');
 
-  // Échéancier (paiement en 3 fois)
+  // Échéancier (paiement en 3 fois) — sur le reste dû : net à payer
+  // si un acompte est déduit (facture), sinon le total TTC.
+  const acompte = data.totals.acompte || 0;
+  const isInvoice = data.type === 'invoice';
+  const installmentsBase = data.totals.netAPayer != null ? data.totals.netAPayer : data.totals.totalTTC;
   const installments = data.payment3x
-    ? computeInstallments3x(data.totals.totalTTC, data.dueDate || data.date)
+    ? computeInstallments3x(installmentsBase, data.dueDate || data.date)
     : null;
 
+  // Lignes acompte du tableau des totaux :
+  // facture → déduction rouge + net à payer ; devis → mention grise.
+  const acompteRowHTML =
+    acompte > 0
+      ? isInvoice
+        ? `
+          <tr>
+            <td style="padding:5px 10px;font-size:13px;color:#dc2626;">Acompte versé${data.totals.acompteDate ? ` le ${formatDate(data.totals.acompteDate)}` : ''}</td>
+            <td style="padding:5px 10px;text-align:right;font-size:13px;color:#dc2626;font-weight:600;">- ${formatCurrency(acompte)}</td>
+          </tr>`
+        : `
+          <tr>
+            <td style="padding:5px 10px;font-size:13px;color:#64748b;">Acompte à la commande${formatPercentValue(data.totals.acomptePercent) ? ` (${formatPercentValue(data.totals.acomptePercent)})` : ''}</td>
+            <td style="padding:5px 10px;text-align:right;font-size:13px;">${formatCurrency(acompte)}</td>
+          </tr>`
+      : '';
+  const netAPayerRowHTML =
+    isInvoice && acompte > 0 && data.totals.netAPayer != null
+      ? `
+          <tr style="border-top:2px solid #2563eb;">
+            <td style="padding:10px;font-size:15px;font-weight:700;color:#1e293b;">Net à payer</td>
+            <td style="padding:10px;text-align:right;font-size:15px;font-weight:700;color:#2563eb;">${formatCurrency(data.totals.netAPayer)}</td>
+          </tr>`
+      : '';
   // Cahier des charges (Markdown) — placement selon data.cdcMode :
   //   'inline'    : intégré à la facture, après les totaux
   //   'annex'     : hors facture, en annexe du même PDF (page séparée)
@@ -112,12 +140,13 @@ function buildInvoiceHTML(data) {
     .join('');
 
   const paymentInfo =
-    s.defaultPaymentTerms || s.iban || installments
+    s.defaultPaymentTerms || s.iban || installments || (!isInvoice && acompte > 0)
       ? `
       <div style="margin-top:24px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
         <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.03em;">Modalit\u00e9s de paiement</div>
         ${s.defaultPaymentTerms ? `<div style="font-size:12px;color:#475569;">Mode : ${escapeHTML(s.defaultPaymentTerms)}</div>` : ''}
         ${data.dueDate ? `<div style="font-size:12px;color:#475569;">\u00c9ch\u00e9ance : ${formatDate(data.dueDate)}</div>` : ''}
+        ${!isInvoice && acompte > 0 ? `<div style="font-size:12px;color:#475569;font-weight:600;margin-top:8px;">Acompte \u00e0 la commande : ${formatCurrency(acompte)}${formatPercentValue(data.totals.acomptePercent) ? ` (${formatPercentValue(data.totals.acomptePercent)})` : ''} \u2014 solde : ${formatCurrency(round2(data.totals.totalTTC - acompte))}</div>` : ''}
         ${installments ? `
         <div style="font-size:12px;color:#475569;font-weight:600;margin-top:8px;">Paiement en 3 fois :</div>
         ${installments.map((e) => `<div style="font-size:12px;color:#475569;">${e.label} (${formatDate(e.date)}) : <strong>${formatCurrency(e.amount)}</strong></div>`).join('')}
@@ -216,6 +245,8 @@ function buildInvoiceHTML(data) {
             <td style="padding:10px;font-size:15px;font-weight:700;color:#1e293b;">Total TTC</td>
             <td style="padding:10px;text-align:right;font-size:15px;font-weight:700;color:#2563eb;">${formatCurrency(data.totals.totalTTC)}</td>
           </tr>
+          ${acompteRowHTML}
+          ${netAPayerRowHTML}
         </table>
       </div>
 
@@ -332,6 +363,10 @@ function buildPdfDefinition(data) {
   // Mentions HT/TTC toujours présentes, même si TVA non applicable
   // (total HT = total TTC dans ce cas).
   const hasDiscount = data.totals.discountPercent > 0;
+  // Acompte : déduit en facture (net à payer), mentionné en devis
+  const acompte = data.totals.acompte || 0;
+  const isInvoice = data.type === 'invoice';
+  const acompteDeduction = isInvoice && acompte > 0;
   const totalsBody = [];
   if (hasDiscount) {
     totalsBody.push([
@@ -361,9 +396,52 @@ function buildPdfDefinition(data) {
     });
   }
   totalsBody.push([
-    { text: 'Total TTC', fontSize: 13, bold: true, color: dark, margin: [0, 4, 0, 0] },
-    { text: formatCurrency(data.totals.totalTTC), fontSize: 13, bold: true, color: blue, alignment: 'right', margin: [0, 4, 0, 0] },
+    {
+      text: 'Total TTC',
+      fontSize: acompteDeduction ? 10 : 13,
+      bold: true,
+      color: dark,
+      margin: [0, 4, 0, 0],
+    },
+    {
+      text: formatCurrency(data.totals.totalTTC),
+      fontSize: acompteDeduction ? 10 : 13,
+      bold: true,
+      color: acompteDeduction ? dark : blue,
+      alignment: 'right',
+      margin: [0, 4, 0, 0],
+    },
   ]);
+  if (acompteDeduction) {
+    totalsBody.push([
+      {
+        text: `Acompte versé${data.totals.acompteDate ? ` le ${formatDate(data.totals.acompteDate)}` : ''}`,
+        fontSize: 9,
+        color: '#dc2626',
+      },
+      { text: `- ${formatCurrency(acompte)}`, fontSize: 9, color: '#dc2626', alignment: 'right' },
+    ]);
+    totalsBody.push([
+      { text: 'Net à payer', fontSize: 13, bold: true, color: dark, margin: [0, 4, 0, 0] },
+      {
+        text: formatCurrency(data.totals.netAPayer),
+        fontSize: 13,
+        bold: true,
+        color: blue,
+        alignment: 'right',
+        margin: [0, 4, 0, 0],
+      },
+    ]);
+  } else if (!isInvoice && acompte > 0) {
+    totalsBody.push([
+      {
+        text: `Acompte à la commande${formatPercentValue(data.totals.acomptePercent) ? ` (${formatPercentValue(data.totals.acomptePercent)})` : ''}`,
+        fontSize: 9,
+        color: gray,
+      },
+      { text: formatCurrency(acompte), fontSize: 9, bold: true, alignment: 'right' },
+    ]);
+  }
 
   // --- Build content ---
   const content = [];
@@ -451,12 +529,16 @@ function buildPdfDefinition(data) {
     content.push({ text: data.notes, fontSize: 9, color: '#475569', margin: [0, 0, 0, 12] });
   }
 
-  // Échéancier (paiement en 3 fois)
+  // Échéancier (paiement en 3 fois) — sur le reste dû : net à payer
+  // si un acompte est déduit (facture), sinon le total TTC.
   const installments = data.payment3x
-    ? computeInstallments3x(data.totals.totalTTC, data.dueDate || data.date)
+    ? computeInstallments3x(
+        data.totals.netAPayer != null ? data.totals.netAPayer : data.totals.totalTTC,
+        data.dueDate || data.date
+      )
     : null;
 
-  if (s.defaultPaymentTerms || s.iban || installments) {
+  if (s.defaultPaymentTerms || s.iban || installments || (!isInvoice && acompte > 0)) {
     const paymentStack = [];
     paymentStack.push({ text: 'MODALIT\u00c9S DE PAIEMENT', fontSize: 8, bold: true, color: '#334155', margin: [0, 0, 0, 5] });
     if (s.defaultPaymentTerms) paymentStack.push({ text: `Mode : ${s.defaultPaymentTerms}`, fontSize: 9, color: '#475569' });
@@ -470,6 +552,15 @@ function buildPdfDefinition(data) {
             { width: 'auto', text: formatCurrency(e.amount), fontSize: 9, bold: true, color: '#475569', alignment: 'right' },
           ],
         });
+      });
+    }
+    if (!isInvoice && acompte > 0) {
+      paymentStack.push({
+        text: `Acompte à la commande : ${formatCurrency(acompte)}${formatPercentValue(data.totals.acomptePercent) ? ` (${formatPercentValue(data.totals.acomptePercent)})` : ''} \u2014 solde : ${formatCurrency(round2(data.totals.totalTTC - acompte))}`,
+        fontSize: 9,
+        bold: true,
+        color: '#475569',
+        margin: [0, 4, 0, 0],
       });
     }
     if (s.bank) paymentStack.push({ text: `Banque : ${s.bank}`, fontSize: 9, color: '#475569', margin: [0, 4, 0, 0] });

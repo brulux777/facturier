@@ -44,13 +44,21 @@ function renderHistory() {
         ${statusOptions.map(o => `<option value="${o.value}"${o.value === inv.status ? ' selected' : ''}>${o.label}</option>`).join('')}
       </select>`;
 
+      // Facture avec acompte déduit : afficher le net à payer sous le TTC
+      const acompte = (inv.totals && inv.totals.acompte) || 0;
+      const netAPayer = inv.totals ? inv.totals.netAPayer : null;
+      const netHint =
+        inv.type === 'invoice' && acompte > 0 && netAPayer != null
+          ? `<div class="history-title">Net à payer : ${formatCurrency(netAPayer)}</div>`
+          : '';
+
       return `
         <tr>
           <td>${escapeHTML(inv.number)}</td>
           <td>${typeBadge}</td>
           <td>${formatDate(inv.date)}</td>
           <td>${inv.title ? `<div class="history-title">${escapeHTML(inv.title)}</div>` : ''}${escapeHTML(inv.client.name)}</td>
-          <td class="cell-amount">${formatCurrency(inv.totals.totalTTC)}</td>
+          <td class="cell-amount">${formatCurrency(inv.totals.totalTTC)}${netHint}</td>
           <td>${statusSelect}</td>
           <td class="cell-actions">
             <button class="btn btn-ghost" onclick="loadInvoiceIntoForm('${inv.id}')" title="Modifier">
@@ -114,6 +122,9 @@ function duplicateInvoice(invoiceId) {
   document.getElementById('doc-title').value = inv.title || '';
   document.getElementById('doc-notes').value = inv.notes || '';
   document.getElementById('doc-discount').value = inv.discountPercent || 0;
+  document.getElementById('doc-acompte-amount').value = inv.acompteAmount || 0;
+  document.getElementById('doc-acompte-date').value = inv.acompteDate || '';
+  updateAcompteFieldsUI();
   document.getElementById('doc-payment-3x').checked = !!inv.payment3x;
   document.getElementById('cdc-mode').value = inv.cdcMode || 'inline';
 
