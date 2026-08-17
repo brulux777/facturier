@@ -3,10 +3,6 @@
    ============================================ */
 function saveClientFromForm() {
   const name = document.getElementById('client-name').value.trim();
-  if (!name) {
-    showToast('Saisissez le nom du client', 'error');
-    return;
-  }
 
   const clientData = {
     name,

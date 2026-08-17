@@ -288,17 +288,15 @@ function collectInvoiceData() {
 }
 
 function validateInvoice(data) {
-  if (!data.client.name) {
-    showToast('Saisissez le nom du client', 'error');
-    return false;
-  }
-  if (!data.date) {
-    showToast('Saisissez la date', 'error');
-    return false;
-  }
-  const hasItems = data.items.some((i) => i.description.trim() && i.unitPrice > 0);
-  if (!hasItems) {
-    showToast('Ajoutez au moins une ligne avec description et prix', 'error');
+  // Aucun champ obligatoire : on bloque seulement un document totalement vide
+  // (aucun client, aucun titre, aucune ligne) pour éviter les enregistrements
+  // accidentels d'un formulaire jamais rempli.
+  const hasAnything =
+    (data.client && (data.client.name || data.client.email || data.client.address)) ||
+    (data.title && data.title.trim()) ||
+    data.items.some((i) => i.description.trim());
+  if (!hasAnything) {
+    showToast('Document vide — rien à enregistrer', 'error');
     return false;
   }
   return true;
