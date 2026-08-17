@@ -42,6 +42,7 @@ function toggleEditNumber() {
 function createEmptyLine() {
   return {
     id: generateId(),
+    title: '',
     description: '',
     quantity: 1,
     unitPrice: 0,
@@ -55,7 +56,10 @@ function renderLineItems() {
     .map(
       (item, i) => `
       <div class="line-item" data-index="${i}">
-        <textarea rows="2" placeholder="Description" data-field="description">${escapeHTML(item.description)}</textarea>
+        <div class="li-desc-cell">
+          <input type="text" value="${escapeHTML(item.title || '')}" placeholder="Titre (ex : Développement site web)" data-field="title" class="li-title-input">
+          <textarea rows="2" placeholder="Description (détail de la prestation)" data-field="description">${escapeHTML(item.description)}</textarea>
+        </div>
         <input type="number" value="${item.quantity}" min="0" step="1" data-field="quantity">
         <input type="number" value="${item.unitPrice}" min="0" step="0.01" data-field="unitPrice">
         <input type="number" value="${item.tvaRate}" min="0" max="100" step="0.1" data-field="tvaRate" ${state.settings.tvaExempt ? 'disabled' : ''}>
@@ -81,7 +85,9 @@ function handleLineItemChange(e) {
   const item = currentLineItems[index];
   if (!item) return;
 
-  if (field === 'description') {
+  if (field === 'title') {
+    item.title = e.target.value;
+  } else if (field === 'description') {
     item.description = e.target.value;
   } else if (field === 'quantity') {
     item.quantity = parseFloat(e.target.value) || 0;
@@ -109,7 +115,7 @@ function addLineItem() {
   renderLineItems();
   const container = document.getElementById('line-items-container');
   const lastInput = container.querySelector(
-    '.line-item:last-child input[data-field="description"]'
+    '.line-item:last-child input[data-field="title"]'
   );
   if (lastInput) lastInput.focus();
 }
@@ -380,7 +386,7 @@ function validateInvoice(data) {
     (data.client && (data.client.name || data.client.email || data.client.address)) ||
     (data.title && data.title.trim()) ||
     (data.cahierDesCharges && data.cahierDesCharges.trim()) ||
-    data.items.some((i) => i.description.trim());
+    data.items.some((i) => (i.title && i.title.trim()) || i.description.trim());
   if (!hasAnything) {
     showToast('Document vide — rien à enregistrer', 'error');
     return false;

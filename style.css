@@ -489,6 +489,18 @@ body {
   min-height: 38px;
 }
 
+/* Cellule Titre / Description d'une ligne de prestation */
+.li-desc-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.li-desc-cell .li-title-input {
+  font-weight: 600;
+}
+
 .line-item input:focus,
 .line-item textarea:focus {
   outline: none;

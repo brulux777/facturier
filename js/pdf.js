@@ -33,12 +33,23 @@ function buildInvoiceHTML(data) {
 
   const tvaExempt = !!s.tvaExempt;
 
+  // Cellule Titre (gras) + Description (en dessous, plus discrète)
+  const itemCellHTML = (item) => {
+    const titleHTML = item.title && item.title.trim()
+      ? `<div style="font-weight:600;">${escapeHTML(item.title)}</div>`
+      : '';
+    const descHTML = item.description && item.description.trim()
+      ? `<div style="font-size:11px;color:#64748b;margin-top:${titleHTML ? '2' : '0'}px;white-space:pre-wrap;">${escapeHTML(item.description)}</div>`
+      : '';
+    return titleHTML + descHTML;
+  };
+
   const itemRows = data.items
-    .filter((i) => i.description.trim())
+    .filter((i) => (i.title && i.title.trim()) || i.description.trim())
     .map(
       (item) => `
       <tr>
-        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;">${escapeHTML(item.description)}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;">${itemCellHTML(item)}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:13px;">${item.quantity}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:13px;">${formatCurrency(item.unitPrice)}</td>
         ${tvaExempt ? '' : `<td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:13px;">${item.tvaRate}%</td>`}
@@ -136,7 +147,7 @@ function buildInvoiceHTML(data) {
       <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
         <thead>
           <tr style="background:#f1f5f9;">
-            <th style="padding:10px;text-align:left;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;">Description</th>
+            <th style="padding:10px;text-align:left;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;">D\u00e9signation</th>
             <th style="padding:10px;text-align:center;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:60px;">Qt\u00e9</th>
             <th style="padding:10px;text-align:right;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:100px;">${tvaExempt ? 'Prix unit.' : 'PU HT'}</th>
             ${tvaExempt ? '' : '<th style="padding:10px;text-align:center;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:60px;">TVA</th>'}
@@ -245,9 +256,11 @@ function buildPdfDefinition(data) {
   if (c.siret) clientBlock.push({ text: `SIRET: ${c.siret}`, fontSize: 8, color: muted, margin: [0, 3, 0, 0] });
 
   // --- Tableau des prestations ---
-  const filteredItems = data.items.filter((i) => i.description.trim());
+  const filteredItems = data.items.filter(
+    (i) => (i.title && i.title.trim()) || i.description.trim()
+  );
   const tableHeader = [
-    { text: 'Description', style: 'tableHeader' },
+    { text: 'D\u00e9signation', style: 'tableHeader' },
     { text: 'Qt\u00e9', style: 'tableHeader', alignment: 'center' },
     { text: tvaExempt ? 'Prix unit.' : 'PU HT', style: 'tableHeader', alignment: 'right' },
   ];
@@ -256,8 +269,20 @@ function buildPdfDefinition(data) {
 
   const tableBody = [tableHeader];
   filteredItems.forEach((item) => {
+    // Titre en gras + description en dessous, plus petite
+    const designationCell =
+      item.title && item.title.trim()
+        ? {
+            stack: [
+              { text: item.title, fontSize: 9, bold: true },
+              ...(item.description && item.description.trim()
+                ? [{ text: item.description, fontSize: 8, color: gray, margin: [0, 2, 0, 0] }]
+                : []),
+            ],
+          }
+        : { text: item.description, fontSize: 9 };
     const row = [
-      { text: item.description, fontSize: 9 },
+      designationCell,
       { text: String(item.quantity), fontSize: 9, alignment: 'center' },
       { text: formatCurrency(item.unitPrice), fontSize: 9, alignment: 'right' },
     ];
