@@ -1,0 +1,14 @@
+# Facturier — déploiement VPS (convention : bind 127.0.0.1 uniquement,
+# TLS terminé par le nginx hôte, cf. collect69.conf / controle_shop2.conf)
+services:
+  web:
+    build: .
+    container_name: facturier-web
+    ports:
+      - "127.0.0.1:8105:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
