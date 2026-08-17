@@ -222,10 +222,19 @@ function updateInstallmentsUI(t) {
     document.getElementById('doc-due-date').value ||
     document.getElementById('doc-date').value ||
     todayISO();
-  // L'échéancier porte sur le reste dû : net à payer si un acompte
-  // est déjà déduit (facture), sinon le total TTC.
-  const base = t.netAPayer != null ? t.netAPayer : t.totalTTC;
-  box.innerHTML = computeInstallments3x(base, startDate)
+  // L'échéancier porte sur le reste dû après acompte : net à payer
+  // si déjà déduit (facture), sinon total TTC moins l'acompte demandé (devis).
+  const base = t.netAPayer != null ? t.netAPayer : round2(t.totalTTC - t.acompte);
+  // Rappeler explicitement le calcul : reste dû après acompte, dilué en 3 fois.
+  const soldeRow =
+    t.acompte > 0
+      ? `
+      <div class="totals-row" style="font-weight:600;">
+        <span>Reste dû après acompte, dilué en 3 fois (${formatCurrency(t.totalTTC)} − ${formatCurrency(t.acompte)})</span>
+        <span>${formatCurrency(base)}</span>
+      </div>`
+      : '';
+  box.innerHTML = soldeRow + computeInstallments3x(base, startDate)
     .map(
       (e) => `
       <div class="totals-row">

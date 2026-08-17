@@ -63,7 +63,10 @@ function buildInvoiceHTML(data) {
   // si un acompte est déduit (facture), sinon le total TTC.
   const acompte = data.totals.acompte || 0;
   const isInvoice = data.type === 'invoice';
-  const installmentsBase = data.totals.netAPayer != null ? data.totals.netAPayer : data.totals.totalTTC;
+  const installmentsBase =
+    data.totals.netAPayer != null
+      ? data.totals.netAPayer
+      : round2(data.totals.totalTTC - acompte);
   const installments = data.payment3x
     ? computeInstallments3x(installmentsBase, data.dueDate || data.date)
     : null;
@@ -148,7 +151,7 @@ function buildInvoiceHTML(data) {
         ${data.dueDate ? `<div style="font-size:12px;color:#475569;">\u00c9ch\u00e9ance : ${formatDate(data.dueDate)}</div>` : ''}
         ${!isInvoice && acompte > 0 ? `<div style="font-size:12px;color:#475569;font-weight:600;margin-top:8px;">Acompte \u00e0 la commande : ${formatCurrency(acompte)}${formatPercentValue(data.totals.acomptePercent) ? ` (${formatPercentValue(data.totals.acomptePercent)})` : ''} \u2014 solde : ${formatCurrency(round2(data.totals.totalTTC - acompte))}</div>` : ''}
         ${installments ? `
-        <div style="font-size:12px;color:#475569;font-weight:600;margin-top:8px;">Paiement en 3 fois :</div>
+        <div style="font-size:12px;color:#475569;font-weight:600;margin-top:8px;">Paiement en 3 fois${acompte > 0 ? ` — reste dû ${formatCurrency(installmentsBase)} (${formatCurrency(data.totals.totalTTC)} − acompte ${formatCurrency(acompte)} ${isInvoice ? 'déjà versé' : 'à la commande'}), dilué sur 3 mois` : ''} :</div>
         ${installments.map((e) => `<div style="font-size:12px;color:#475569;">${e.label} (${formatDate(e.date)}) : <strong>${formatCurrency(e.amount)}</strong></div>`).join('')}
         ` : ''}
         ${s.bank ? `<div style="font-size:12px;color:#475569;margin-top:6px;">Banque : ${escapeHTML(s.bank)}</div>` : ''}
@@ -530,12 +533,13 @@ function buildPdfDefinition(data) {
   }
 
   // Échéancier (paiement en 3 fois) — sur le reste dû : net à payer
-  // si un acompte est déduit (facture), sinon le total TTC.
+  // si un acompte est déduit (facture), sinon le total TTC moins l'acompte.
+  const installmentsBase =
+    data.totals.netAPayer != null
+      ? data.totals.netAPayer
+      : round2(data.totals.totalTTC - acompte);
   const installments = data.payment3x
-    ? computeInstallments3x(
-        data.totals.netAPayer != null ? data.totals.netAPayer : data.totals.totalTTC,
-        data.dueDate || data.date
-      )
+    ? computeInstallments3x(installmentsBase, data.dueDate || data.date)
     : null;
 
   if (s.defaultPaymentTerms || s.iban || installments || (!isInvoice && acompte > 0)) {
@@ -544,7 +548,13 @@ function buildPdfDefinition(data) {
     if (s.defaultPaymentTerms) paymentStack.push({ text: `Mode : ${s.defaultPaymentTerms}`, fontSize: 9, color: '#475569' });
     if (data.dueDate) paymentStack.push({ text: `\u00c9ch\u00e9ance : ${formatDate(data.dueDate)}`, fontSize: 9, color: '#475569' });
     if (installments) {
-      paymentStack.push({ text: 'Paiement en 3 fois :', fontSize: 9, bold: true, color: '#475569', margin: [0, 4, 0, 0] });
+      paymentStack.push({
+        text: `Paiement en 3 fois${acompte > 0 ? ` — reste dû ${formatCurrency(installmentsBase)} (${formatCurrency(data.totals.totalTTC)} − acompte ${formatCurrency(acompte)} ${isInvoice ? 'déjà versé' : 'à la commande'}), dilué sur 3 mois` : ''} :`,
+        fontSize: 9,
+        bold: true,
+        color: '#475569',
+        margin: [0, 4, 0, 0],
+      });
       installments.forEach((e) => {
         paymentStack.push({
           columns: [
