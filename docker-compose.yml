@@ -1,14 +1,24 @@
 # Facturier — déploiement VPS (convention : bind 127.0.0.1 uniquement,
-# TLS terminé par le nginx hôte, cf. collect69.conf / controle_shop2.conf)
+# TLS terminé par le nginx hôte). Les identifiants sont dans .env
+# (voir .env.example — jamais commité).
 services:
   web:
     build: .
     container_name: facturier-web
     ports:
-      - "127.0.0.1:8105:80"
+      - "127.0.0.1:8105:3000"
+    env_file: .env
+    environment:
+      - PORT=3000
+      - DATA_FILE=/data/state.json
+    volumes:
+      - facturier_data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
       interval: 30s
-      timeout: 3s
+      timeout: 5s
       retries: 3
+
+volumes:
+  facturier_data:

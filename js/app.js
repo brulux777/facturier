@@ -86,8 +86,14 @@ function init() {
     });
   }
 
+  // Logout (mode serveur uniquement)
+  document.getElementById('btn-logout').addEventListener('click', doLogout);
+
   // Init editor
   resetInvoiceForm();
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', async () => {
+  await syncBootstrap();
+  init();
+});

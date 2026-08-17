@@ -50,6 +50,12 @@ function loadState() {
 }
 
 function saveState() {
+  // Mode serveur (self-hébergé) : l'état vit côté serveur, synchro différée
+  if (typeof SERVER_MODE !== 'undefined' && SERVER_MODE) {
+    scheduleServerSync();
+    return;
+  }
+  // Mode local (GitHub Pages / fichier) : localStorage
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {

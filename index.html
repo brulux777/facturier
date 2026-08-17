@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
   <div id="app">
@@ -266,6 +266,10 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Exporter
             </button>
+            <button type="button" id="btn-logout" class="btn btn-sm btn-outline" style="display:none;" title="Se déconnecter du serveur">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Déconnexion
+            </button>
             <input type="file" id="import-file-input" accept=".json" style="display:none;">
           </div>
         </div>
@@ -422,6 +426,22 @@
   <!-- ========== TOAST ========== -->
   <div id="toast-container"></div>
 
+  <!-- ========== LOGIN (mode serveur) ========== -->
+  <div id="login-overlay" class="login-overlay" style="display:none;">
+    <form id="login-form" class="login-card">
+      <h2>Facturier Pro</h2>
+      <p class="login-hint">Cette instance synchronise vos données sur le serveur. Identifiez-vous.</p>
+      <label class="login-label">Email
+        <input type="email" id="login-email" required autocomplete="username">
+      </label>
+      <label class="login-label">Mot de passe
+        <input type="password" id="login-password" required autocomplete="current-password">
+      </label>
+      <div id="login-error" class="login-error"></div>
+      <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+    </form>
+  </div>
+
   <!-- ========== FIRST-RUN BANNER ========== -->
   <div id="first-run-banner" class="first-run-banner" style="display:none;">
     <div class="first-run-content">
@@ -434,12 +454,13 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
-  <script src="js/state.js"></script>
-  <script src="js/settings.js"></script>
-  <script src="js/clients.js"></script>
-  <script src="js/editor.js"></script>
-  <script src="js/pdf.js"></script>
-  <script src="js/history.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/state.js?v=2"></script>
+  <script src="js/server-sync.js?v=2"></script>
+  <script src="js/settings.js?v=2"></script>
+  <script src="js/clients.js?v=2"></script>
+  <script src="js/editor.js?v=2"></script>
+  <script src="js/pdf.js?v=2"></script>
+  <script src="js/history.js?v=2"></script>
+  <script src="js/app.js?v=2"></script>
 </body>
 </html>
