@@ -99,6 +99,17 @@ function addDays(dateStr, days) {
   return d.toISOString().split('T')[0];
 }
 
+// Ajoute n mois en conservant le jour (borné au dernier jour du mois cible)
+function addMonths(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + n);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDay));
+  return d.toISOString().split('T')[0];
+}
+
 function round2(n) {
   return Math.round(n * 100) / 100;
 }

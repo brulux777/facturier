@@ -114,6 +114,8 @@ function duplicateInvoice(invoiceId) {
   document.getElementById('doc-title').value = inv.title || '';
   document.getElementById('doc-notes').value = inv.notes || '';
   document.getElementById('doc-discount').value = inv.discountPercent || 0;
+  document.getElementById('doc-payment-3x').checked = !!inv.payment3x;
+  document.getElementById('cdc-mode').value = inv.cdcMode || 'inline';
 
   currentLineItems = (inv.items || []).map((item) => ({ ...item, id: generateId() }));
   document.getElementById('cdc-markdown').value = inv.cahierDesCharges || '';

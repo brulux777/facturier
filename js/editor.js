@@ -196,6 +196,44 @@ function initPrestationsTabs() {
   });
 }
 
+// --- Paiement en 3 fois ---
+
+function computeInstallments3x(totalTTC, startDateStr) {
+  const total = round2(totalTTC);
+  const base = round2(total / 3);
+  const last = round2(total - base * 2); // reprise des centimes d'arrondi
+  const start = startDateStr || todayISO();
+  return [
+    { label: '1re \u00e9ch\u00e9ance', date: start, amount: base },
+    { label: '2e \u00e9ch\u00e9ance', date: addMonths(start, 1), amount: base },
+    { label: '3e \u00e9ch\u00e9ance', date: addMonths(start, 2), amount: last },
+  ];
+}
+
+// Appelée uniquement depuis updateTotalsDOM (qui fournit les totaux) :
+// jamais de calculateTotals() ici (r\u00e9cursion infinie).
+function updateInstallmentsUI(t) {
+  const box = document.getElementById('installments-preview');
+  if (!box) return;
+  const enabled = document.getElementById('doc-payment-3x').checked;
+  box.hidden = !enabled;
+  if (!enabled) return;
+  const startDate =
+    document.getElementById('doc-due-date').value ||
+    document.getElementById('doc-date').value ||
+    todayISO();
+  box.innerHTML = computeInstallments3x(t.totalTTC, startDate)
+    .map(
+      (e) => `
+      <div class="totals-row">
+        <span>${e.label} (${formatDate(e.date)})</span>
+        <span>${formatCurrency(e.amount)}</span>
+      </div>
+    `
+    )
+    .join('');
+}
+
 // --- Calculations ---
 
 function calculateTotals() {
@@ -239,35 +277,39 @@ function calculateTotals() {
 
 function updateTotalsDOM(t) {
   const hasDiscount = t.discountPercent > 0;
-  const tvaExempt = !!state.settings.tvaExempt;
-  const htSuffix = tvaExempt ? '' : ' HT';
 
-  document.getElementById('total-ht-brut-label').textContent = hasDiscount ? `Total${htSuffix} brut` : `Total${htSuffix}`;
+  // Mentions HT/TTC toujours pr\u00e9sentes, m\u00eame si TVA non applicable
+  // (total HT = total TTC dans ce cas, mention 293 B du CGI en pied).
+  document.getElementById('total-ht-brut-label').textContent = hasDiscount ? 'Total HT brut' : 'Total HT';
   document.getElementById('total-ht-brut').textContent = formatCurrency(t.totalHTBrut);
   document.getElementById('discount-row').style.display = hasDiscount ? '' : 'none';
-  document.getElementById('total-ht-net-row').style.display = hasDiscount && !tvaExempt ? '' : 'none';
+  document.getElementById('total-ht-net-row').style.display = hasDiscount ? '' : 'none';
 
   if (hasDiscount) {
     document.getElementById('discount-label').textContent = `Remise (${t.discountPercent}%)`;
     document.getElementById('discount-amount').textContent = `- ${formatCurrency(t.discountAmount)}`;
-    document.getElementById('total-ht-net-label').textContent = `Total${htSuffix} net`;
+    document.getElementById('total-ht-net-label').textContent = 'Total HT net';
   }
 
-  document.getElementById('total-final-label').textContent = tvaExempt ? 'Total' : 'Total TTC';
+  document.getElementById('total-final-label').textContent = 'Total TTC';
   document.getElementById('total-ht').textContent = formatCurrency(t.totalHT);
   document.getElementById('total-ttc').textContent = formatCurrency(t.totalTTC);
 
   const breakdownEl = document.getElementById('tva-breakdown');
-  breakdownEl.innerHTML = t.tvaBreakdown
-    .map(
-      (b) => `
+  breakdownEl.innerHTML = state.settings.tvaExempt
+    ? ''
+    : t.tvaBreakdown
+        .map(
+          (b) => `
       <div class="totals-row">
         <span>TVA ${b.rate}% (sur ${formatCurrency(b.base)})</span>
         <span>${formatCurrency(b.tva)}</span>
       </div>
     `
-    )
-    .join('');
+        )
+        .join('');
+
+  updateInstallmentsUI(t);
 }
 
 // --- Form ---
@@ -294,6 +336,8 @@ function resetInvoiceForm() {
   document.getElementById('doc-title').value = '';
   document.getElementById('doc-notes').value = '';
   document.getElementById('doc-discount').value = '0';
+  document.getElementById('doc-payment-3x').checked = false;
+  document.getElementById('cdc-mode').value = 'inline';
 
   currentLineItems = [createEmptyLine()];
   resetCahierDesCharges();
@@ -328,6 +372,8 @@ function loadInvoiceIntoForm(invoiceId) {
 
   document.getElementById('doc-notes').value = inv.notes || '';
   document.getElementById('doc-discount').value = inv.discountPercent || 0;
+  document.getElementById('doc-payment-3x').checked = !!inv.payment3x;
+  document.getElementById('cdc-mode').value = inv.cdcMode || 'inline';
 
   currentLineItems = (inv.items || []).map((item) => ({ ...item, id: item.id || generateId() }));
   document.getElementById('cdc-markdown').value = inv.cahierDesCharges || '';
@@ -349,6 +395,8 @@ function collectInvoiceData() {
   const clientId = document.getElementById('client-select').value || null;
 
   const discountPercent = parseFloat(document.getElementById('doc-discount').value) || 0;
+  const payment3x = document.getElementById('doc-payment-3x').checked;
+  const cdcMode = document.getElementById('cdc-mode').value;
 
   const client = {
     name: document.getElementById('client-name').value.trim(),
@@ -368,6 +416,8 @@ function collectInvoiceData() {
     date,
     dueDate,
     discountPercent,
+    payment3x,
+    cdcMode,
     client,
     clientId,
     items: currentLineItems.map((item) => ({ ...item })),
@@ -446,4 +496,5 @@ function handleDateChange() {
       state.settings.defaultPaymentDelay
     );
   }
+  calculateTotals(); // rafra\u00eechit l'\u00e9ch\u00e9ancier 3x (dates)
 }

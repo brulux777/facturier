@@ -59,15 +59,46 @@ function buildInvoiceHTML(data) {
     )
     .join('');
 
-  // Cahier des charges (Markdown) — section après les totaux si rempli
-  const cdcHTML = data.cahierDesCharges && data.cahierDesCharges.trim()
-    ? `
+  // Échéancier (paiement en 3 fois)
+  const installments = data.payment3x
+    ? computeInstallments3x(data.totals.totalTTC, data.dueDate || data.date)
+    : null;
+
+  // Cahier des charges (Markdown) — placement selon data.cdcMode :
+  //   'inline'    : intégré à la facture, après les totaux
+  //   'annex'     : hors facture, en annexe du même PDF (page séparée)
+  //   'separate'  : hors facture, dans un second PDF téléchargé à part
+  const cdcFilled = !!(data.cahierDesCharges && data.cahierDesCharges.trim());
+  const cdcMode = data.cdcMode || 'inline';
+  const cdcTitleHTML = `
+    <div style="font-size:16px;font-weight:700;color:#1e293b;">Cahier des charges</div>
+    <div style="font-size:11px;color:#64748b;margin-top:2px;">Annexe ${typeLabel === 'FACTURE' ? 'de la facture' : 'du devis'} n\u00b0 ${escapeHTML(data.number)} \u2014 ${formatDate(data.date)}</div>
+  `;
+  let cdcHTML = '';
+  if (cdcFilled && cdcMode === 'inline') {
+    cdcHTML = `
       <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;">
         <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px;">Cahier des charges</div>
         ${renderMarkdownHTML(data.cahierDesCharges)}
       </div>
+    `;
+  }
+  const cdcAnnexHTML =
+    cdcFilled && cdcMode === 'annex'
+      ? `
+      <div style="margin-top:36px;padding-top:14px;border-top:2px dashed #cbd5e1;text-align:center;font-size:10px;color:#94a3b8;letter-spacing:0.05em;">ANNEXE \u2014 PAGE S\u00c9PAR\u00c9E DANS LE PDF</div>
+      <div style="margin-top:18px;">
+        ${cdcTitleHTML}
+        <div style="margin-top:12px;">${renderMarkdownHTML(data.cahierDesCharges)}</div>
+      </div>
     `
-    : '';
+      : '';
+  const cdcSeparateNote =
+    cdcFilled && cdcMode === 'separate'
+      ? `
+      <div style="margin-top:16px;font-size:11px;color:#64748b;">Cahier des charges : non inclus dans ce document \u2014 g\u00e9n\u00e9r\u00e9 dans un PDF s\u00e9par\u00e9 (${escapeHTML(data.number)}-cahier-des-charges.pdf).</div>
+    `
+      : '';
 
   const tvaRows = tvaExempt ? '' : data.totals.tvaBreakdown
     .map(
@@ -81,12 +112,16 @@ function buildInvoiceHTML(data) {
     .join('');
 
   const paymentInfo =
-    s.defaultPaymentTerms || s.iban
+    s.defaultPaymentTerms || s.iban || installments
       ? `
       <div style="margin-top:24px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
         <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.03em;">Modalit\u00e9s de paiement</div>
         ${s.defaultPaymentTerms ? `<div style="font-size:12px;color:#475569;">Mode : ${escapeHTML(s.defaultPaymentTerms)}</div>` : ''}
         ${data.dueDate ? `<div style="font-size:12px;color:#475569;">\u00c9ch\u00e9ance : ${formatDate(data.dueDate)}</div>` : ''}
+        ${installments ? `
+        <div style="font-size:12px;color:#475569;font-weight:600;margin-top:8px;">Paiement en 3 fois :</div>
+        ${installments.map((e) => `<div style="font-size:12px;color:#475569;">${e.label} (${formatDate(e.date)}) : <strong>${formatCurrency(e.amount)}</strong></div>`).join('')}
+        ` : ''}
         ${s.bank ? `<div style="font-size:12px;color:#475569;margin-top:6px;">Banque : ${escapeHTML(s.bank)}</div>` : ''}
         ${s.iban ? `<div style="font-size:12px;color:#475569;">IBAN : ${escapeHTML(s.iban)}</div>` : ''}
         ${s.bic ? `<div style="font-size:12px;color:#475569;">BIC : ${escapeHTML(s.bic)}</div>` : ''}
@@ -149,9 +184,9 @@ function buildInvoiceHTML(data) {
           <tr style="background:#f1f5f9;">
             <th style="padding:10px;text-align:left;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;">D\u00e9signation</th>
             <th style="padding:10px;text-align:center;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:60px;">Qt\u00e9</th>
-            <th style="padding:10px;text-align:right;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:100px;">${tvaExempt ? 'Prix unit.' : 'PU HT'}</th>
+            <th style="padding:10px;text-align:right;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:100px;">PU HT</th>
             ${tvaExempt ? '' : '<th style="padding:10px;text-align:center;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:60px;">TVA</th>'}
-            <th style="padding:10px;text-align:right;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:110px;">Total</th>
+            <th style="padding:10px;text-align:right;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:110px;">Total HT</th>
           </tr>
         </thead>
         <tbody>
@@ -162,23 +197,23 @@ function buildInvoiceHTML(data) {
       <div style="display:flex;justify-content:flex-end;">
         <table style="border-collapse:collapse;min-width:260px;">
           ${data.totals.discountPercent > 0 ? `<tr>
-            <td style="padding:5px 10px;font-size:13px;color:#64748b;">Total${tvaExempt ? '' : ' HT'} brut</td>
+            <td style="padding:5px 10px;font-size:13px;color:#64748b;">Total HT brut</td>
             <td style="padding:5px 10px;text-align:right;font-size:13px;font-weight:600;">${formatCurrency(data.totals.totalHTBrut)}</td>
           </tr>
           <tr>
             <td style="padding:5px 10px;font-size:13px;color:#dc2626;">Remise (${data.totals.discountPercent}%)</td>
             <td style="padding:5px 10px;text-align:right;font-size:13px;color:#dc2626;font-weight:600;">- ${formatCurrency(data.totals.discountAmount)}</td>
           </tr>
-          ${!tvaExempt ? `<tr>
+          <tr>
             <td style="padding:5px 10px;font-size:13px;color:#64748b;">Total HT net</td>
             <td style="padding:5px 10px;text-align:right;font-size:13px;font-weight:600;">${formatCurrency(data.totals.totalHT)}</td>
-          </tr>` : ''}` : (!tvaExempt ? `<tr>
+          </tr>` : `<tr>
             <td style="padding:5px 10px;font-size:13px;color:#64748b;">Total HT</td>
             <td style="padding:5px 10px;text-align:right;font-size:13px;font-weight:600;">${formatCurrency(data.totals.totalHTBrut)}</td>
-          </tr>` : '')}
+          </tr>`}
           ${!tvaExempt ? tvaRows : ''}
           <tr style="border-top:2px solid #2563eb;">
-            <td style="padding:10px;font-size:15px;font-weight:700;color:#1e293b;">${tvaExempt ? 'Total' : 'Total TTC'}</td>
+            <td style="padding:10px;font-size:15px;font-weight:700;color:#1e293b;">Total TTC</td>
             <td style="padding:10px;text-align:right;font-size:15px;font-weight:700;color:#2563eb;">${formatCurrency(data.totals.totalTTC)}</td>
           </tr>
         </table>
@@ -187,7 +222,9 @@ function buildInvoiceHTML(data) {
       ${cdcHTML}
       ${notesHTML}
       ${paymentInfo}
+      ${cdcSeparateNote}
       ${legalHTML}
+      ${cdcAnnexHTML}
     </div>
   `;
 }
@@ -262,10 +299,10 @@ function buildPdfDefinition(data) {
   const tableHeader = [
     { text: 'D\u00e9signation', style: 'tableHeader' },
     { text: 'Qt\u00e9', style: 'tableHeader', alignment: 'center' },
-    { text: tvaExempt ? 'Prix unit.' : 'PU HT', style: 'tableHeader', alignment: 'right' },
+    { text: 'PU HT', style: 'tableHeader', alignment: 'right' },
   ];
   if (!tvaExempt) tableHeader.push({ text: 'TVA', style: 'tableHeader', alignment: 'center' });
-  tableHeader.push({ text: 'Total', style: 'tableHeader', alignment: 'right' });
+  tableHeader.push({ text: 'Total HT', style: 'tableHeader', alignment: 'right' });
 
   const tableBody = [tableHeader];
   filteredItems.forEach((item) => {
@@ -292,24 +329,24 @@ function buildPdfDefinition(data) {
   });
 
   // --- Totals ---
+  // Mentions HT/TTC toujours présentes, même si TVA non applicable
+  // (total HT = total TTC dans ce cas).
   const hasDiscount = data.totals.discountPercent > 0;
   const totalsBody = [];
   if (hasDiscount) {
     totalsBody.push([
-      { text: `Total${tvaExempt ? '' : ' HT'} brut`, fontSize: 9, color: gray },
+      { text: 'Total HT brut', fontSize: 9, color: gray },
       { text: formatCurrency(data.totals.totalHTBrut), fontSize: 9, bold: true, alignment: 'right' },
     ]);
     totalsBody.push([
       { text: `Remise (${data.totals.discountPercent}%)`, fontSize: 9, color: '#dc2626' },
       { text: `- ${formatCurrency(data.totals.discountAmount)}`, fontSize: 9, color: '#dc2626', alignment: 'right' },
     ]);
-    if (!tvaExempt) {
-      totalsBody.push([
-        { text: 'Total HT net', fontSize: 9, color: gray },
-        { text: formatCurrency(data.totals.totalHT), fontSize: 9, bold: true, alignment: 'right' },
-      ]);
-    }
-  } else if (!tvaExempt) {
+    totalsBody.push([
+      { text: 'Total HT net', fontSize: 9, color: gray },
+      { text: formatCurrency(data.totals.totalHT), fontSize: 9, bold: true, alignment: 'right' },
+    ]);
+  } else {
     totalsBody.push([
       { text: 'Total HT', fontSize: 9, color: gray },
       { text: formatCurrency(data.totals.totalHTBrut), fontSize: 9, bold: true, alignment: 'right' },
@@ -324,7 +361,7 @@ function buildPdfDefinition(data) {
     });
   }
   totalsBody.push([
-    { text: tvaExempt ? 'Total' : 'Total TTC', fontSize: 13, bold: true, color: dark, margin: [0, 4, 0, 0] },
+    { text: 'Total TTC', fontSize: 13, bold: true, color: dark, margin: [0, 4, 0, 0] },
     { text: formatCurrency(data.totals.totalTTC), fontSize: 13, bold: true, color: blue, alignment: 'right', margin: [0, 4, 0, 0] },
   ]);
 
@@ -396,8 +433,11 @@ function buildPdfDefinition(data) {
     margin: [0, 0, 0, 16],
   });
 
-  // Cahier des charges (Markdown) — après les totaux, seulement si rempli
-  if (data.cahierDesCharges && data.cahierDesCharges.trim()) {
+  // Cahier des charges (Markdown) — 'inline' : intégré après les totaux.
+  // ('annex' : page dédiée en fin de PDF ; 'separate' : rien ici, PDF à part)
+  const cdcFilled = !!(data.cahierDesCharges && data.cahierDesCharges.trim());
+  const cdcMode = data.cdcMode || 'inline';
+  if (cdcFilled && cdcMode === 'inline') {
     content.push({
       canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#e2e8f0' }],
       margin: [0, 10, 0, 6],
@@ -411,11 +451,27 @@ function buildPdfDefinition(data) {
     content.push({ text: data.notes, fontSize: 9, color: '#475569', margin: [0, 0, 0, 12] });
   }
 
-  if (s.defaultPaymentTerms || s.iban) {
+  // Échéancier (paiement en 3 fois)
+  const installments = data.payment3x
+    ? computeInstallments3x(data.totals.totalTTC, data.dueDate || data.date)
+    : null;
+
+  if (s.defaultPaymentTerms || s.iban || installments) {
     const paymentStack = [];
     paymentStack.push({ text: 'MODALIT\u00c9S DE PAIEMENT', fontSize: 8, bold: true, color: '#334155', margin: [0, 0, 0, 5] });
     if (s.defaultPaymentTerms) paymentStack.push({ text: `Mode : ${s.defaultPaymentTerms}`, fontSize: 9, color: '#475569' });
     if (data.dueDate) paymentStack.push({ text: `\u00c9ch\u00e9ance : ${formatDate(data.dueDate)}`, fontSize: 9, color: '#475569' });
+    if (installments) {
+      paymentStack.push({ text: 'Paiement en 3 fois :', fontSize: 9, bold: true, color: '#475569', margin: [0, 4, 0, 0] });
+      installments.forEach((e) => {
+        paymentStack.push({
+          columns: [
+            { width: '*', text: `${e.label} (${formatDate(e.date)})`, fontSize: 9, color: '#475569' },
+            { width: 'auto', text: formatCurrency(e.amount), fontSize: 9, bold: true, color: '#475569', alignment: 'right' },
+          ],
+        });
+      });
+    }
     if (s.bank) paymentStack.push({ text: `Banque : ${s.bank}`, fontSize: 9, color: '#475569', margin: [0, 4, 0, 0] });
     if (s.iban) paymentStack.push({ text: `IBAN : ${s.iban}`, fontSize: 9, color: '#475569' });
     if (s.bic) paymentStack.push({ text: `BIC : ${s.bic}`, fontSize: 9, color: '#475569' });
@@ -437,6 +493,11 @@ function buildPdfDefinition(data) {
     }
   }
 
+  // Cahier des charges 'annex' : hors facture, sur une page dédiée du même PDF
+  if (cdcFilled && cdcMode === 'annex') {
+    cdcAnnexPdfBlocks(data, true).forEach((block) => content.push(block));
+  }
+
   return {
     content,
     defaultStyle: { font: 'Roboto' },
@@ -451,6 +512,51 @@ function buildPdfDefinition(data) {
   };
 }
 
+// Blocs d'en-tête + contenu du cahier des charges en annexe.
+// withPageBreak=true → nouvelle page (mode 'annex' dans le même PDF) ;
+// false → document autonome (mode 'separate', second PDF).
+function cdcAnnexPdfBlocks(data, withPageBreak) {
+  const typeLabel = data.type === 'invoice' ? 'FACTURE' : 'DEVIS';
+  const blocks = [];
+  blocks.push({
+    text: 'CAHIER DES CHARGES',
+    fontSize: 16,
+    bold: true,
+    color: '#2563eb',
+    ...(withPageBreak ? { pageBreak: 'before' } : {}),
+    margin: [0, 0, 0, 2],
+  });
+  blocks.push({
+    text: `Annexe ${typeLabel === 'FACTURE' ? 'de la facture' : 'du devis'} n\u00b0 ${data.number} \u2014 ${formatDate(data.date)}`,
+    fontSize: 9,
+    color: '#64748b',
+    margin: [0, 0, 0, 2],
+  });
+  if (data.client && data.client.name) {
+    blocks.push({ text: `Destinataire : ${data.client.name}`, fontSize: 9, color: '#64748b' });
+  }
+  blocks.push({
+    canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, lineColor: '#cbd5e1' }],
+    margin: [0, 10, 0, 12],
+  });
+  markdownToPdfContent(data.cahierDesCharges).forEach((block) => blocks.push(block));
+  return blocks;
+}
+
+// PDF autonome du cahier des charges (mode 'separate')
+function buildCahierDesChargesPdfDefinition(data) {
+  const s = data.settings || state.settings;
+  return {
+    content: cdcAnnexPdfBlocks(data, false),
+    defaultStyle: { font: 'Roboto' },
+    pageMargins: [40, 40, 40, 40],
+    info: {
+      title: `Cahier des charges ${data.number}`,
+      author: s.companyName,
+    },
+  };
+}
+
 function downloadPDF() {
   if (typeof pdfMake === 'undefined') {
     showToast('Biblioth\u00e8que PDF non charg\u00e9e', 'error');
@@ -460,7 +566,20 @@ function downloadPDF() {
   const data = collectInvoiceData();
   if (!validateInvoice(data)) return;
 
-  const docDef = buildPdfDefinition(data);
-  pdfMake.createPdf(docDef).download(`${data.number}.pdf`);
+  const cdcFilled = !!(data.cahierDesCharges && data.cahierDesCharges.trim());
+  pdfMake.createPdf(buildPdfDefinition(data)).download(`${data.number}.pdf`);
+
+  // Cahier des charges en PDF séparé (léger délai : certains navigateurs
+  // bloquent deux téléchargements simultanés)
+  if (cdcFilled && data.cdcMode === 'separate') {
+    setTimeout(() => {
+      pdfMake
+        .createPdf(buildCahierDesChargesPdfDefinition(data))
+        .download(`${data.number}-cahier-des-charges.pdf`);
+    }, 500);
+    showToast('PDF t\u00e9l\u00e9charg\u00e9 + cahier des charges s\u00e9par\u00e9');
+    return;
+  }
+
   showToast('PDF t\u00e9l\u00e9charg\u00e9');
 }

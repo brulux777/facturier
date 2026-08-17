@@ -7,6 +7,9 @@ Générateur de factures et devis professionnel, gratuit et open-source. Fonctio
 ## Fonctionnalités
 
 - **Factures & Devis** — Numérotation automatique (éditable), TVA configurable, multi-taux
+- **Mentions HT/TTC toujours présentes** — même en TVA non applicable (art. 293 B), les totaux affichent Total HT et Total TTC
+- **Cahier des charges** — Markdown optionnel avec 3 emplacements au choix : intégré à la facture, en annexe sur une page séparée du même PDF, ou dans un second PDF téléchargé à part
+- **Paiement en 3 fois** — activable/désactivable par document, échéancier mensuel automatique (montants + dates)
 - **Gestion clients** — Enregistrement et réutilisation des fiches clients
 - **PDF professionnel** — Génération et téléchargement de PDF conformes aux normes françaises
 - **Historique** — Recherche, filtrage, statut (brouillon/envoyée/payée), duplication

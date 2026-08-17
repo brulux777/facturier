@@ -37,6 +37,10 @@ function init() {
   // Discount
   document.getElementById('doc-discount').addEventListener('input', calculateTotals);
 
+  // Paiement en 3 fois (rafraîchit l'échéancier affiché dans les totaux)
+  document.getElementById('doc-payment-3x').addEventListener('change', calculateTotals);
+  document.getElementById('doc-due-date').addEventListener('input', calculateTotals);
+
   // Edit invoice number
   document.getElementById('btn-edit-number').addEventListener('click', toggleEditNumber);
 

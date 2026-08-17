@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
   <div id="app">
@@ -170,6 +170,14 @@
               </div>
               <div id="pane-cdc" hidden>
                 <div class="form-group">
+                  <label for="cdc-mode">Emplacement du cahier des charges dans le document</label>
+                  <select id="cdc-mode">
+                    <option value="inline">Dans la facture (après les totaux)</option>
+                    <option value="annex">Hors facture — annexe dans le même PDF (page séparée)</option>
+                    <option value="separate">Hors facture — PDF séparé (deuxième fichier)</option>
+                  </select>
+                </div>
+                <div class="form-group">
                   <label for="cdc-markdown">Cahier des charges / explication de la facture (Markdown, optionnel)</label>
                   <div class="md-dropzone" id="md-dropzone">
                     <input type="file" id="md-file-input" accept=".md,.markdown,.txt" hidden>
@@ -214,6 +222,7 @@
                     <span id="total-ht">0,00 €</span>
                   </div>
                   <div id="tva-breakdown"></div>
+                  <div id="installments-preview" hidden></div>
                   <div class="totals-row totals-row-final">
                     <span id="total-final-label">Total TTC</span>
                     <span id="total-ttc">0,00 €</span>
@@ -221,6 +230,13 @@
                   <div class="totals-discount-input">
                     <label for="doc-discount">Remise globale (%)</label>
                     <input type="number" id="doc-discount" name="discount" value="0" min="0" max="100" step="0.1">
+                  </div>
+                  <div class="totals-discount-input">
+                    <label class="checkbox-label" for="doc-payment-3x">
+                      <input type="checkbox" id="doc-payment-3x" name="payment3x">
+                      <span>Paiement en 3 fois</span>
+                    </label>
+                    <small class="form-hint">3 échéances mensuelles (1re à la date d'échéance) — activable/désactivable par document</small>
                   </div>
                 </div>
               </div>
@@ -465,14 +481,14 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
-  <script src="js/state.js?v=11"></script>
-  <script src="js/server-sync.js?v=11"></script>
-  <script src="js/markdown.js?v=11"></script>
-  <script src="js/settings.js?v=11"></script>
-  <script src="js/clients.js?v=11"></script>
-  <script src="js/editor.js?v=11"></script>
-  <script src="js/pdf.js?v=11"></script>
-  <script src="js/history.js?v=11"></script>
-  <script src="js/app.js?v=11"></script>
+  <script src="js/state.js?v=12"></script>
+  <script src="js/server-sync.js?v=12"></script>
+  <script src="js/markdown.js?v=12"></script>
+  <script src="js/settings.js?v=12"></script>
+  <script src="js/clients.js?v=12"></script>
+  <script src="js/editor.js?v=12"></script>
+  <script src="js/pdf.js?v=12"></script>
+  <script src="js/history.js?v=12"></script>
+  <script src="js/app.js?v=12"></script>
 </body>
 </html>
