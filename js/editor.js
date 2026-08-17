@@ -3,6 +3,8 @@
    ============================================ */
 let currentLineItems = [];
 let editingInvoiceId = null;
+// Mode de saisie des prestations : 'simple' (lignes) ou 'advanced' (montant + Markdown)
+let currentMode = 'simple';
 
 // --- Invoice Number ---
 
@@ -114,9 +116,145 @@ function addLineItem() {
   if (lastInput) lastInput.focus();
 }
 
+// --- Mode de saisie (simple / avancé) ---
+
+function getAdvancedPanelData() {
+  return {
+    amount: parseFloat(document.getElementById('adv-amount').value) || 0,
+    tvaRate: parseFloat(document.getElementById('adv-tva').value) || 0,
+    markdown: document.getElementById('adv-markdown').value,
+  };
+}
+
+function simplePanelHasData() {
+  return currentLineItems.some(
+    (it) => it.description.trim() || round2(it.quantity * it.unitPrice) > 0
+  );
+}
+
+function advancedPanelHasData() {
+  const d = getAdvancedPanelData();
+  return d.amount > 0 || d.markdown.trim().length > 0;
+}
+
+function resetAdvancedTva() {
+  document.getElementById('adv-tva').value = state.settings.tvaExempt
+    ? 0
+    : state.settings.defaultTva;
+}
+
+function clearAdvancedFields() {
+  document.getElementById('adv-amount').value = '';
+  document.getElementById('adv-markdown').value = '';
+  resetAdvancedTva();
+}
+
+function refreshEditorModeUI() {
+  document
+    .querySelectorAll('#editor-mode-toggle .mode-btn')
+    .forEach((b) => b.classList.toggle('active', b.dataset.mode === currentMode));
+  document.getElementById('mode-simple-panel').hidden = currentMode !== 'simple';
+  document.getElementById('mode-advanced-panel').hidden = currentMode !== 'advanced';
+
+  // Libellé du montant et champ TVA selon l'assujettissement
+  const exempt = !!state.settings.tvaExempt;
+  document.getElementById('adv-amount-label').textContent = exempt
+    ? 'Montant total (€)'
+    : 'Montant total TTC (€)';
+  document.getElementById('adv-tva').disabled = exempt;
+}
+
+function setEditorMode(mode, opts = {}) {
+  if (mode !== 'advanced') mode = 'simple';
+  if (mode === currentMode) {
+    refreshEditorModeUI();
+    return;
+  }
+  if (!opts.force) {
+    const losingData = mode === 'advanced' ? simplePanelHasData() : advancedPanelHasData();
+    if (losingData) {
+      const msg =
+        mode === 'advanced'
+          ? 'Passer en mode avancé supprimera les prestations saisies. Continuer ?'
+          : 'Revenir en mode simple supprimera le montant et le contenu Markdown. Continuer ?';
+      if (!confirm(msg)) return;
+    }
+  }
+  currentMode = mode;
+  if (mode === 'advanced') {
+    currentLineItems = [];
+    resetAdvancedTva();
+  } else {
+    clearAdvancedFields();
+    currentLineItems = [createEmptyLine()];
+  }
+  refreshEditorModeUI();
+  renderLineItems();
+}
+
+function loadMarkdownFile(file) {
+  if (file.size > 2 * 1024 * 1024) {
+    showToast('Fichier trop volumineux (2 Mo max)', 'error');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    document.getElementById('adv-markdown').value = String(reader.result || '');
+    showToast(`« ${file.name} » chargé`);
+  };
+  reader.onerror = () => showToast('Impossible de lire le fichier', 'error');
+  reader.readAsText(file);
+}
+
+function initAdvancedMode() {
+  document.querySelectorAll('#editor-mode-toggle .mode-btn').forEach((btn) => {
+    btn.addEventListener('click', () => setEditorMode(btn.dataset.mode));
+  });
+
+  document.getElementById('adv-amount').addEventListener('input', calculateTotals);
+  document.getElementById('adv-tva').addEventListener('input', calculateTotals);
+
+  const dropzone = document.getElementById('md-dropzone');
+  const fileInput = document.getElementById('md-file-input');
+  const chooseBtn = document.getElementById('btn-choose-md');
+
+  const openFileDialog = () => fileInput.click();
+  dropzone.addEventListener('click', (e) => {
+    if (chooseBtn.contains(e.target)) return; // géré par le bouton lui-même
+    openFileDialog();
+  });
+  chooseBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openFileDialog();
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files[0]) loadMarkdownFile(fileInput.files[0]);
+    fileInput.value = '';
+  });
+
+  ['dragenter', 'dragover'].forEach((evt) =>
+    dropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      dropzone.classList.add('drag-over');
+    })
+  );
+  ['dragleave', 'drop'].forEach((evt) =>
+    dropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('drag-over');
+    })
+  );
+  dropzone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) loadMarkdownFile(file);
+  });
+}
+
 // --- Calculations ---
 
 function calculateTotals() {
+  if (currentMode === 'advanced') return calculateAdvancedTotals();
+
   let totalHTBrut = 0;
   const tvaMap = {};
 
@@ -150,27 +288,55 @@ function calculateTotals() {
   totalTVA = round2(totalTVA);
   const totalTTC = round2(totalHT + totalTVA);
 
+  const totals = { totalHTBrut, discountPercent, discountAmount, totalHT, totalTVA, totalTTC, tvaBreakdown };
+  updateTotalsDOM(totals);
+  return totals;
+}
+
+// Mode avancé : le montant saisi est le total final (TTC si TVA applicable).
+// La remise « dégrossit » le HT : TTC = montant saisi, HT net = TTC / (1 + taux),
+// HT brut = HT net avant remise.
+function calculateAdvancedTotals() {
+  const tvaExempt = !!state.settings.tvaExempt;
+  const adv = getAdvancedPanelData();
+  const rate = tvaExempt ? 0 : adv.tvaRate;
+  const discountPercent = parseFloat(document.getElementById('doc-discount').value) || 0;
+
+  const totalTTC = round2(adv.amount);
+  const totalHT = round2(totalTTC / (1 + rate / 100));
+  const totalTVA = round2(totalTTC - totalHT);
   const hasDiscount = discountPercent > 0;
+  const totalHTBrut = hasDiscount ? round2(totalHT / (1 - discountPercent / 100)) : totalHT;
+  const discountAmount = round2(totalHTBrut - totalHT);
+  const tvaBreakdown = tvaExempt ? [] : [{ rate, base: totalHT, tva: totalTVA }];
+
+  const totals = { totalHTBrut, discountPercent, discountAmount, totalHT, totalTVA, totalTTC, tvaBreakdown };
+  updateTotalsDOM(totals);
+  return totals;
+}
+
+function updateTotalsDOM(t) {
+  const hasDiscount = t.discountPercent > 0;
   const tvaExempt = !!state.settings.tvaExempt;
   const htSuffix = tvaExempt ? '' : ' HT';
 
   document.getElementById('total-ht-brut-label').textContent = hasDiscount ? `Total${htSuffix} brut` : `Total${htSuffix}`;
-  document.getElementById('total-ht-brut').textContent = formatCurrency(totalHTBrut);
+  document.getElementById('total-ht-brut').textContent = formatCurrency(t.totalHTBrut);
   document.getElementById('discount-row').style.display = hasDiscount ? '' : 'none';
   document.getElementById('total-ht-net-row').style.display = hasDiscount && !tvaExempt ? '' : 'none';
 
   if (hasDiscount) {
-    document.getElementById('discount-label').textContent = `Remise (${discountPercent}%)`;
-    document.getElementById('discount-amount').textContent = `- ${formatCurrency(discountAmount)}`;
+    document.getElementById('discount-label').textContent = `Remise (${t.discountPercent}%)`;
+    document.getElementById('discount-amount').textContent = `- ${formatCurrency(t.discountAmount)}`;
     document.getElementById('total-ht-net-label').textContent = `Total${htSuffix} net`;
   }
 
   document.getElementById('total-final-label').textContent = tvaExempt ? 'Total' : 'Total TTC';
-  document.getElementById('total-ht').textContent = formatCurrency(totalHT);
-  document.getElementById('total-ttc').textContent = formatCurrency(totalTTC);
+  document.getElementById('total-ht').textContent = formatCurrency(t.totalHT);
+  document.getElementById('total-ttc').textContent = formatCurrency(t.totalTTC);
 
   const breakdownEl = document.getElementById('tva-breakdown');
-  breakdownEl.innerHTML = tvaBreakdown
+  breakdownEl.innerHTML = t.tvaBreakdown
     .map(
       (b) => `
       <div class="totals-row">
@@ -180,8 +346,6 @@ function calculateTotals() {
     `
     )
     .join('');
-
-  return { totalHTBrut, discountPercent, discountAmount, totalHT, totalTVA, totalTTC, tvaBreakdown };
 }
 
 // --- Form ---
@@ -210,6 +374,9 @@ function resetInvoiceForm() {
   document.getElementById('doc-discount').value = '0';
 
   currentLineItems = [createEmptyLine()];
+  clearAdvancedFields();
+  currentMode = 'simple';
+  refreshEditorModeUI();
   renderLineItems();
 
   document.querySelector('.view-header h2').textContent = 'Nouveau document';
@@ -241,7 +408,23 @@ function loadInvoiceIntoForm(invoiceId) {
   document.getElementById('doc-notes').value = inv.notes || '';
   document.getElementById('doc-discount').value = inv.discountPercent || 0;
 
-  currentLineItems = inv.items.map((item) => ({ ...item, id: item.id || generateId() }));
+  const isAdvanced = inv.mode === 'advanced' && inv.advanced;
+  if (isAdvanced) {
+    document.getElementById('adv-amount').value = inv.advanced.amount || '';
+    document.getElementById('adv-tva').value =
+      inv.advanced.tvaRate !== undefined && inv.advanced.tvaRate !== null
+        ? inv.advanced.tvaRate
+        : state.settings.tvaExempt
+          ? 0
+          : state.settings.defaultTva;
+    document.getElementById('adv-markdown').value = inv.advanced.markdown || '';
+    currentLineItems = [];
+  } else {
+    currentLineItems = (inv.items || []).map((item) => ({ ...item, id: item.id || generateId() }));
+    clearAdvancedFields();
+  }
+  currentMode = isAdvanced ? 'advanced' : 'simple';
+  refreshEditorModeUI();
   renderLineItems();
 
   document.querySelector('.view-header h2').textContent =
@@ -280,7 +463,9 @@ function collectInvoiceData() {
     discountPercent,
     client,
     clientId,
-    items: currentLineItems.map((item) => ({ ...item })),
+    mode: currentMode,
+    advanced: currentMode === 'advanced' ? getAdvancedPanelData() : null,
+    items: currentMode === 'advanced' ? [] : currentLineItems.map((item) => ({ ...item })),
     notes,
     totals,
     settings: { ...state.settings },
@@ -289,12 +474,14 @@ function collectInvoiceData() {
 
 function validateInvoice(data) {
   // Aucun champ obligatoire : on bloque seulement un document totalement vide
-  // (aucun client, aucun titre, aucune ligne) pour éviter les enregistrements
-  // accidentels d'un formulaire jamais rempli.
+  // (aucun client, aucun titre, aucune ligne, aucun montant ni contenu) pour
+  // éviter les enregistrements accidentels d'un formulaire jamais rempli.
   const hasAnything =
     (data.client && (data.client.name || data.client.email || data.client.address)) ||
     (data.title && data.title.trim()) ||
-    data.items.some((i) => i.description.trim());
+    (data.mode === 'advanced'
+      ? !!(data.advanced && (data.advanced.amount > 0 || data.advanced.markdown.trim()))
+      : data.items.some((i) => i.description.trim()));
   if (!hasAnything) {
     showToast('Document vide — rien à enregistrer', 'error');
     return false;

@@ -113,8 +113,25 @@ function duplicateInvoice(invoiceId) {
 
   document.getElementById('doc-title').value = inv.title || '';
   document.getElementById('doc-notes').value = inv.notes || '';
+  document.getElementById('doc-discount').value = inv.discountPercent || 0;
 
-  currentLineItems = inv.items.map((item) => ({ ...item, id: generateId() }));
+  const isAdvanced = inv.mode === 'advanced' && inv.advanced;
+  if (isAdvanced) {
+    document.getElementById('adv-amount').value = inv.advanced.amount || '';
+    document.getElementById('adv-tva').value =
+      inv.advanced.tvaRate !== undefined && inv.advanced.tvaRate !== null
+        ? inv.advanced.tvaRate
+        : state.settings.tvaExempt
+          ? 0
+          : state.settings.defaultTva;
+    document.getElementById('adv-markdown').value = inv.advanced.markdown || '';
+    currentLineItems = [];
+  } else {
+    currentLineItems = (inv.items || []).map((item) => ({ ...item, id: generateId() }));
+    clearAdvancedFields();
+  }
+  currentMode = isAdvanced ? 'advanced' : 'simple';
+  refreshEditorModeUI();
   renderLineItems();
 
   document.querySelector('.view-header h2').textContent = 'Nouveau document (copie)';

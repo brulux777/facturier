@@ -1125,3 +1125,94 @@ body.login-page {
   gap: 10px;
   margin-top: 4px;
 }
+
+/* ============================================
+   MODE PRESTATIONS (simple / avancé)
+   ============================================ */
+.mode-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.mode-toggle .mode-btn {
+  border: none;
+  background: transparent;
+  padding: 5px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.mode-toggle .mode-btn:hover {
+  color: var(--color-text);
+}
+
+.mode-toggle .mode-btn.active {
+  background: var(--color-surface);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* --- Mode avancé : dropzone Markdown + zone d'édition --- */
+.md-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  padding: 18px 14px;
+  margin-bottom: 10px;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.md-dropzone svg {
+  width: 22px;
+  height: 22px;
+  color: var(--color-text-muted);
+}
+
+.md-dropzone p {
+  margin: 0;
+}
+
+.md-dropzone .form-hint {
+  font-size: 0.75rem;
+}
+
+.md-dropzone:hover,
+.md-dropzone.drag-over {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-text);
+}
+
+#adv-markdown {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  min-height: 180px;
+}
+

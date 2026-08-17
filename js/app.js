@@ -50,6 +50,9 @@ function init() {
     }
   });
 
+  // Mode de saisie (simple / avancé) + dropzone Markdown
+  initAdvancedMode();
+
   // Actions
   document.getElementById('btn-save-draft').addEventListener('click', () => saveInvoice('draft'));
   document.getElementById('btn-preview').addEventListener('click', showPreview);

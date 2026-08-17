@@ -32,11 +32,14 @@ function buildInvoiceHTML(data) {
   ].filter(Boolean);
 
   const tvaExempt = !!s.tvaExempt;
+  const advanced = data.mode === 'advanced' && data.advanced;
 
-  const itemRows = data.items
-    .filter((i) => i.description.trim())
-    .map(
-      (item) => `
+  const itemRows = advanced
+    ? ''
+    : data.items
+        .filter((i) => i.description.trim())
+        .map(
+          (item) => `
       <tr>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;">${escapeHTML(item.description)}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:13px;">${item.quantity}</td>
@@ -45,8 +48,27 @@ function buildInvoiceHTML(data) {
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:13px;font-weight:500;">${formatCurrency(round2(item.quantity * item.unitPrice))}</td>
       </tr>
     `
-    )
-    .join('');
+        )
+        .join('');
+
+  const itemsTableHTML = advanced
+    ? `<div class="md-content" style="margin-bottom:20px;">${renderMarkdownHTML(advanced.markdown)}</div>`
+    : `
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+        <thead>
+          <tr style="background:#f1f5f9;">
+            <th style="padding:10px;text-align:left;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;">Description</th>
+            <th style="padding:10px;text-align:center;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:60px;">Qt\u00e9</th>
+            <th style="padding:10px;text-align:right;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:100px;">${tvaExempt ? 'Prix unit.' : 'PU HT'}</th>
+            ${tvaExempt ? '' : '<th style="padding:10px;text-align:center;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:60px;">TVA</th>'}
+            <th style="padding:10px;text-align:right;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:110px;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemRows}
+        </tbody>
+      </table>
+    `;
 
   const tvaRows = tvaExempt ? '' : data.totals.tvaBreakdown
     .map(
@@ -123,20 +145,7 @@ function buildInvoiceHTML(data) {
 
       ${data.title ? `<div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:16px;">${escapeHTML(data.title)}</div>` : ''}
 
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-        <thead>
-          <tr style="background:#f1f5f9;">
-            <th style="padding:10px;text-align:left;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;">Description</th>
-            <th style="padding:10px;text-align:center;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:60px;">Qt\u00e9</th>
-            <th style="padding:10px;text-align:right;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:100px;">${tvaExempt ? 'Prix unit.' : 'PU HT'}</th>
-            ${tvaExempt ? '' : '<th style="padding:10px;text-align:center;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:60px;">TVA</th>'}
-            <th style="padding:10px;text-align:right;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;width:110px;">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itemRows}
-        </tbody>
-      </table>
+      ${itemsTableHTML}
 
       <div style="display:flex;justify-content:flex-end;">
         <table style="border-collapse:collapse;min-width:260px;">
@@ -233,8 +242,9 @@ function buildPdfDefinition(data) {
   clientLines.forEach((l) => clientBlock.push({ text: l, fontSize: 9, color: '#475569' }));
   if (c.siret) clientBlock.push({ text: `SIRET: ${c.siret}`, fontSize: 8, color: muted, margin: [0, 3, 0, 0] });
 
-  // --- Items table ---
-  const filteredItems = data.items.filter((i) => i.description.trim());
+  // --- Items table / contenu Markdown (mode avancé) ---
+  const advanced = data.mode === 'advanced' && data.advanced;
+  const filteredItems = advanced ? [] : data.items.filter((i) => i.description.trim());
   const tableHeader = [
     { text: 'Description', style: 'tableHeader' },
     { text: 'Qt\u00e9', style: 'tableHeader', alignment: 'center' },
@@ -321,24 +331,29 @@ function buildPdfDefinition(data) {
     content.push({ text: data.title, fontSize: 14, bold: true, color: dark, margin: [0, 0, 0, 12] });
   }
 
-  content.push({
-    table: {
-      headerRows: 1,
-      widths: tvaExempt ? ['*', 40, 70, 80] : ['*', 40, 70, 40, 80],
-      body: tableBody,
-    },
-    layout: {
-      hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5,
-      vLineWidth: () => 0,
-      hLineColor: (i) => i <= 1 ? '#cbd5e1' : '#e2e8f0',
-      fillColor: (i) => i === 0 ? '#f1f5f9' : null,
-      paddingTop: () => 7,
-      paddingBottom: () => 7,
-      paddingLeft: () => 8,
-      paddingRight: () => 8,
-    },
-    margin: [0, 0, 0, 16],
-  });
+  if (advanced) {
+    // Mode avancé : le contenu Markdown remplace le tableau des prestations
+    markdownToPdfContent(advanced.markdown).forEach((block) => content.push(block));
+  } else {
+    content.push({
+      table: {
+        headerRows: 1,
+        widths: tvaExempt ? ['*', 40, 70, 80] : ['*', 40, 70, 40, 80],
+        body: tableBody,
+      },
+      layout: {
+        hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5,
+        vLineWidth: () => 0,
+        hLineColor: (i) => i <= 1 ? '#cbd5e1' : '#e2e8f0',
+        fillColor: (i) => i === 0 ? '#f1f5f9' : null,
+        paddingTop: () => 7,
+        paddingBottom: () => 7,
+        paddingLeft: () => 8,
+        paddingRight: () => 8,
+      },
+      margin: [0, 0, 0, 16],
+    });
+  }
 
   content.push({
     columns: [
