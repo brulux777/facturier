@@ -11,9 +11,9 @@ function generateInvoiceNumber(type) {
   const prefix =
     type === 'invoice' ? state.settings.invoicePrefix : state.settings.quotePrefix;
   const counterKey = type === 'invoice' ? 'invoice' : 'quote';
-  state.counters[counterKey]++;
-  saveState();
-  const num = String(state.counters[counterKey]).padStart(3, '0');
+  // Pas de saveState() ici : le compteur n'est persisté qu'à l'enregistrement
+  // réel du document (saveInvoice), pas au simple chargement du formulaire.
+  const num = String(state.counters[counterKey] + 1).padStart(3, '0');
   return `${prefix}-${year}-${num}`;
 }
 
@@ -319,6 +319,10 @@ function saveInvoice(status = 'draft') {
       };
     }
   } else {
+    // Nouveau document : on incrémente le compteur correspondant ici
+    // (et seulement ici — pas au simple chargement du formulaire)
+    const counterKey = data.type === 'quote' ? 'quote' : 'invoice';
+    state.counters[counterKey] = Math.max(state.counters[counterKey] + 1, 1);
     const invoice = {
       id: generateId(),
       ...data,

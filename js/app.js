@@ -11,16 +11,11 @@ function init() {
     btn.addEventListener('click', () => showView(btn.dataset.view));
   });
 
-  // Settings form — auto-save on every change
+  // Settings form — enregistrement explicite via le bouton "Enregistrer"
   document.getElementById('settings-form').addEventListener('submit', saveSettings);
-  document.getElementById('settings-form').addEventListener('input', autoSaveSettings);
-  document.getElementById('settings-form').addEventListener('change', autoSaveSettings);
   document.getElementById('s-logo').addEventListener('change', handleLogoUpload);
   document.getElementById('btn-remove-logo').addEventListener('click', removeLogo);
-  document.getElementById('s-tva-exempt').addEventListener('change', () => {
-    updateTvaExemptUI();
-    autoSaveSettings();
-  });
+  document.getElementById('s-tva-exempt').addEventListener('change', updateTvaExemptUI);
 
   // Import / Export
   document.getElementById('btn-export-data').addEventListener('click', exportData);
@@ -74,8 +69,8 @@ function init() {
   document.getElementById('history-search').addEventListener('input', renderHistory);
   document.getElementById('history-filter').addEventListener('change', renderHistory);
 
-  // First-run banner
-  if (!state.settings.companyName) {
+  // First-run banner (mode local uniquement — jamais en mode serveur)
+  if (!SERVER_MODE && !state.settings.companyName) {
     document.getElementById('first-run-banner').style.display = '';
     document.getElementById('btn-go-settings').addEventListener('click', () => {
       document.getElementById('first-run-banner').style.display = 'none';
