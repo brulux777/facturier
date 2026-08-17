@@ -62,6 +62,14 @@ async function pushStateToServer() {
       redirectToLogin();
       return false;
     }
+    if (r.status === 409) {
+      // Garde anti-écrasement : l'état local est désynchronisé (ex : onglet
+      // ouvert depuis longtemps, ancienne version). On recharge l'état
+      // serveur plutôt que d'écraser les données.
+      showToast('Données plus récentes sur le serveur — rechargement...', 'error');
+      setTimeout(() => location.reload(), 1200);
+      return false;
+    }
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return true;
   } catch (e) {
