@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Connexion — Facturier Pro</title>
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body class="login-page">
   <form id="login-form" class="login-card">
@@ -31,10 +31,14 @@
         return;
       }
 
+      // Retour à la page demandée initialement (302 /login.html?next=...)
+      const next = new URLSearchParams(location.search).get('next');
+      const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+
       // Déjà connecté : pas besoin du formulaire
       const probe = await fetch('/api/state', { credentials: 'same-origin' });
       if (probe.ok) {
-        location.replace('/');
+        location.replace(safeNext);
         return;
       }
 
@@ -55,7 +59,7 @@
           });
           const j = await r.json().catch(() => ({}));
           if (r.ok) {
-            location.replace('/');
+            location.replace(safeNext);
             return;
           }
           errEl.textContent = j.error || 'Identifiants incorrects';

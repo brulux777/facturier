@@ -1,20 +1,23 @@
 /* ============================================================
-   Facturier — serveur (Node natif, zéro dépendance)
+   Facturier — serveur (Node + PostgreSQL)
    ------------------------------------------------------------
-   - Sert les fichiers statiques (index.html, style.css, js/)
+   - Sert les fichiers statiques (index.html, login.html, js/)
    - API de synchronisation de l'état (settings/clients/invoices)
-     stocké dans un fichier JSON du volume Docker (/data/state.json)
+     stocké dans PostgreSQL (conteneur `db` du docker-compose)
    - Auth : email + mot de passe (hash SHA-256 en variable d'env),
      session par cookie signé HMAC, tentatives limitées par IP.
+   - Pages app protégées : 302 vers /login.html?next=... si non
+     connecté (l'app n'est pas servie avant authentification).
    ------------------------------------------------------------
    Variables d'environnement :
      PORT                  (déf. 3000)
-     DATA_FILE             (déf. /data/state.json)
-     AUTH_EMAIL            email de connexion (ex. user@example.com)
+     DATA_FILE             (déf. /data/state.json — migration initiale)
+     AUTH_EMAIL            email de connexion
      AUTH_PASSWORD_SHA256  SHA-256 hex du mot de passe
      SESSION_SECRET        secret HMAC long et aléatoire
-     COOKIE_SECURE         1 = cookie Secure (HTTPS), 0 sinon
+     COOKIE_SECURE         1 = cookie Secure (HTTPS)
      SESSION_TTL_DAYS      durée de session (déf. 30)
+     PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD  (PostgreSQL)
    ============================================================ */
 'use strict';
 
@@ -22,6 +25,7 @@ const http = require('http');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { Pool } = require('pg');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const DATA_FILE = process.env.DATA_FILE || '/data/state.json';
@@ -47,7 +51,6 @@ function safeEqual(a, b) {
   const ab = Buffer.from(String(a));
   const bb = Buffer.from(String(b));
   if (ab.length !== bb.length) {
-    // Compare quand même pour limiter les fuites temporelles
     crypto.timingSafeEqual(Buffer.alloc(32), Buffer.alloc(32));
     return false;
   }
@@ -75,7 +78,7 @@ function isValidSession(cookieHeader) {
     return false;
   }
   // Format : <email>.<expMs>.<hmac> — l'email pouvant contenir des points,
-  // on parses depuis la droite (sig = dernier champ, exp = avant-dernier).
+  // on parse depuis la droite (sig = dernier champ, exp = avant-dernier).
   const lastDot = value.lastIndexOf('.');
   const secondLastDot = value.lastIndexOf('.', lastDot - 1);
   if (lastDot < 0 || secondLastDot < 0) return false;
@@ -110,23 +113,64 @@ function loginAllowed(ip) {
   return rec.count <= LOGIN_MAX;
 }
 
-// ---------- état ----------
+// ---------- PostgreSQL ----------
 
-function readStateFile() {
-  try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-  } catch (e) {
-    if (e.code !== 'ENOENT') console.error('[facturier] Lecture état:', e.message);
-    return null;
+const pool = new Pool({
+  host: process.env.PGHOST || 'db',
+  port: parseInt(process.env.PGPORT || '5432', 10),
+  database: process.env.PGDATABASE || 'facturier',
+  user: process.env.PGUSER || 'facturier',
+  password: process.env.PGPASSWORD || '',
+  max: 5,
+});
+
+async function initDb() {
+  // Attente du conteneur db (retry ~60 s)
+  for (let attempt = 1; attempt <= 30; attempt++) {
+    try {
+      await pool.query('SELECT 1');
+      break;
+    } catch (e) {
+      if (attempt === 30) throw e;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
   }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS settings (
+      id         INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      data       JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS clients (
+      id   TEXT PRIMARY KEY,
+      data JSONB NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS invoices (
+      id   TEXT PRIMARY KEY,
+      data JSONB NOT NULL
+    );
+  `);
+
+  await migrateFromJsonFile();
 }
 
-function writeStateFile(obj) {
-  const dir = path.dirname(DATA_FILE);
-  fs.mkdirSync(dir, { recursive: true });
-  const tmp = `${DATA_FILE}.tmp-${process.pid}-${Date.now()}`;
-  fs.writeFileSync(tmp, JSON.stringify(obj), { utf8: true });
-  fs.renameSync(tmp, DATA_FILE); // atomique sur le même système de fichiers
+/**
+ * Migration unique : si la base est vide et qu'un state.json existe
+ * (ancienne version du projet), on importe ses données dans Postgres.
+ */
+async function migrateFromJsonFile() {
+  const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM settings');
+  if (rows[0].n > 0) return;
+  let old = null;
+  try {
+    old = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+  } catch (e) {
+    return; // pas de fichier ancien : base vierge, rien à migrer
+  }
+  if (!stateLooksValid(old)) return;
+  await writeStateToDb(old);
+  console.log('[facturier] Migration state.json → PostgreSQL effectuée');
 }
 
 function stateLooksValid(obj) {
@@ -135,6 +179,57 @@ function stateLooksValid(obj) {
     obj.settings && typeof obj.settings === 'object' &&
     Array.isArray(obj.clients) && Array.isArray(obj.invoices)
   );
+}
+
+async function readStateFromDb() {
+  const res = {};
+  const s = await pool.query('SELECT data FROM settings WHERE id = 1');
+  if (s.rowCount === 0) return null;
+  res.settings = (s.rows[0].data && s.rows[0].data.settings) || {};
+  res.counters = (s.rows[0].data && s.rows[0].data.counters) || { invoice: 0, quote: 0 };
+
+  const c = await pool.query('SELECT data FROM clients ORDER BY data->>\'name\'');
+  res.clients = c.rows.map((r) => r.data);
+
+  const i = await pool.query('SELECT data FROM invoices ORDER BY data->>\'date\' DESC');
+  res.invoices = i.rows.map((r) => r.data);
+  return res;
+}
+
+async function writeStateToDb(st) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO settings (id, data, updated_at) VALUES (1, $1::jsonb, now())
+       ON CONFLICT (id) DO UPDATE SET data = $1::jsonb, updated_at = now()`,
+      [JSON.stringify({ settings: st.settings || {}, counters: st.counters || { invoice: 0, quote: 0 } })]
+    );
+    await client.query('DELETE FROM clients');
+    for (let k = 0; k < (st.clients || []).length; k++) {
+      const cl = st.clients[k];
+      const id = String(cl.id || 'client-' + k);
+      await client.query(
+        'INSERT INTO clients (id, data) VALUES ($1, $2::jsonb) ON CONFLICT (id) DO UPDATE SET data = $2::jsonb',
+        [id, JSON.stringify(cl)]
+      );
+    }
+    await client.query('DELETE FROM invoices');
+    for (let k = 0; k < (st.invoices || []).length; k++) {
+      const inv = st.invoices[k];
+      const id = String(inv.id || 'invoice-' + k);
+      await client.query(
+        'INSERT INTO invoices (id, data) VALUES ($1, $2::jsonb) ON CONFLICT (id) DO UPDATE SET data = $2::jsonb',
+        [id, JSON.stringify(inv)]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 // ---------- statiques ----------
@@ -232,12 +327,18 @@ function sendJson(res, code, obj, extraHeaders) {
 // ---------- serveur ----------
 
 const server = http.createServer(async (req, res) => {
-  const pathname = new URL(req.url, 'http://localhost').pathname;
+  const url = new URL(req.url, 'http://localhost');
+  const pathname = url.pathname;
 
   try {
-    // --- healthcheck (public) ---
+    // --- healthcheck (public, dépend de la base) ---
     if (pathname === '/api/health' && req.method === 'GET') {
-      return sendJson(res, 200, { ok: true, server: true });
+      try {
+        await pool.query('SELECT 1');
+        return sendJson(res, 200, { ok: true, server: true, db: true });
+      } catch (e) {
+        return sendJson(res, 503, { ok: false, server: true, db: false });
+      }
     }
 
     // --- login (public, limité) ---
@@ -257,7 +358,12 @@ const server = http.createServer(async (req, res) => {
           `Max-Age=${SESSION_TTL_DAYS * 24 * 3600}`,
         ];
         if (COOKIE_SECURE) cookie.push('Secure');
-        return sendJson(res, 200, { ok: true }, { 'Set-Cookie': cookie.join('; ') });
+        return sendJson(res, 200, { ok: true }, {
+          'Set-Cookie': cookie.join('; '),
+          // Purge le cache navigateur de l'origine (ex : vieilles versions
+          // de l'app cachées par une version précédente du serveur)
+          'Clear-Site-Data': '"cache"',
+        });
       }
       return sendJson(res, 401, { error: 'Identifiants incorrects' });
     }
@@ -274,7 +380,7 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 401, { error: 'Non authentifié' });
       }
       if (pathname === '/api/state' && req.method === 'GET') {
-        const st = readStateFile();
+        const st = await readStateFromDb();
         return sendJson(res, 200, { state: stateLooksValid(st) ? st : null });
       }
       if (pathname === '/api/state' && req.method === 'PUT') {
@@ -282,7 +388,7 @@ const server = http.createServer(async (req, res) => {
         if (!stateLooksValid(body)) {
           return sendJson(res, 400, { error: 'Structure de données invalide' });
         }
-        writeStateFile(body);
+        await writeStateToDb(body);
         return sendJson(res, 200, { ok: true, savedAt: new Date().toISOString() });
       }
       return sendJson(res, 404, { error: 'Route inconnue' });
@@ -290,7 +396,7 @@ const server = http.createServer(async (req, res) => {
 
     // --- statiques ---
     if (req.method === 'GET' || req.method === 'HEAD') {
-      // Redirection login : non-connecté → /login.html pour toute page app.
+      // Pages app protégées : non-connecté → /login.html (avec retour).
       // Les assets (css/js) et la page login restent publics ; l'API est
       // déjà protégée plus haut. Un visiteur non connecté ne reçoit jamais
       // l'app, juste la page de connexion.
@@ -299,7 +405,8 @@ const server = http.createServer(async (req, res) => {
       const isLoginPage = pathname === '/login.html';
       const isAsset = !!ext && pathname !== '/index.html';
       if (!authed && !isLoginPage && !isAsset) {
-        res.writeHead(302, { Location: '/login.html', 'Cache-Control': 'no-store' });
+        const next = encodeURIComponent(pathname === '/' ? '/' : pathname);
+        res.writeHead(302, { Location: `/login.html?next=${next}`, 'Cache-Control': 'no-store' });
         return res.end();
       }
       return serveStatic(req, res, pathname);
@@ -311,6 +418,13 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`[facturier] écoute sur :${PORT} — données: ${DATA_FILE}`);
-});
+initDb()
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`[facturier] écoute sur :${PORT} — PostgreSQL ${process.env.PGHOST || 'db'}:${process.env.PGPORT || 5432}/${process.env.PGDATABASE || 'facturier'}`);
+    });
+  })
+  .catch((e) => {
+    console.error('[facturier] Init PostgreSQL impossible:', e.message);
+    process.exit(1);
+  });

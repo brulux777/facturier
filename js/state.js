@@ -123,7 +123,21 @@ function showToast(message, type = 'success') {
 
 // --- Navigation ---
 
-function showView(viewId) {
+// Routes (mode serveur uniquement ; en local l'app reste sur une page)
+const VIEW_PATHS = {
+  editor: '/',
+  history: '/historique',
+  clients: '/clients',
+  settings: '/parametres',
+};
+const PATH_VIEWS = {
+  '/': 'editor',
+  '/historique': 'history',
+  '/clients': 'clients',
+  '/parametres': 'settings',
+};
+
+function showView(viewId, navigate = true) {
   document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
 
@@ -135,4 +149,10 @@ function showView(viewId) {
 
   if (viewId === 'history') renderHistory();
   if (viewId === 'clients') renderClients();
+
+  // URL dédiée par vue (/parametres, /clients, /historique) en mode serveur
+  if (navigate && typeof SERVER_MODE !== 'undefined' && SERVER_MODE) {
+    const p = VIEW_PATHS[viewId];
+    if (p && location.pathname !== p) history.pushState({}, '', p);
+  }
 }

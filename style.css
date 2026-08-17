@@ -1115,3 +1115,13 @@ body.login-page {
 .btn-block {
   width: 100%;
 }
+
+/* ============================================
+   ACTIONS DE FORMULAIRE (bouton Enregistrer)
+   ============================================ */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}

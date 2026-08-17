@@ -89,6 +89,13 @@ function init() {
   // Logout (mode serveur uniquement)
   document.getElementById('btn-logout').addEventListener('click', doLogout);
 
+  // Routing : URL initiale (/parametres, /clients, /historique) + bouton retour
+  const initialView = PATH_VIEWS[location.pathname] || 'editor';
+  if (initialView !== 'editor') showView(initialView, false);
+  window.addEventListener('popstate', () => {
+    showView(PATH_VIEWS[location.pathname] || 'editor', false);
+  });
+
   // Init editor
   resetInvoiceForm();
 }

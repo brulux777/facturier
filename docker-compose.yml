@@ -1,7 +1,24 @@
 # Facturier — déploiement VPS (convention : bind 127.0.0.1 uniquement,
-# TLS terminé par le nginx hôte). Les identifiants sont dans .env
-# (voir .env.example — jamais commité).
+# TLS terminé par le nginx hôte). Identifiants dans .env (voir .env.example).
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: facturier-db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-facturier}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis dans .env}
+      - POSTGRES_DB=${POSTGRES_DB:-facturier}
+    volumes:
+      - facturier_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-facturier} -d ${POSTGRES_DB:-facturier}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    # Volontairement NON publié sur l'hôte : accessible uniquement
+    # via le réseau docker du projet.
+
   web:
     build: .
     container_name: facturier-web
@@ -11,8 +28,16 @@ services:
     environment:
       - PORT=3000
       - DATA_FILE=/data/state.json
+      - PGHOST=db
+      - PGPORT=5432
+      - PGDATABASE=${POSTGRES_DB:-facturier}
+      - PGUSER=${POSTGRES_USER:-facturier}
+      - PGPASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis dans .env}
     volumes:
-      - facturier_data:/data
+      - facturier_data:/data  # lecture migration state.json (ancienne version)
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
@@ -22,3 +47,4 @@ services:
 
 volumes:
   facturier_data:
+  facturier_pgdata:

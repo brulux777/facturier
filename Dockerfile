@@ -2,13 +2,17 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# Statiques servies par server.js depuis /app/public
+# Dépendances (pg) — layer séparé pour le cache de build
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# Statiques servis par server.js depuis /app/public
 COPY server/server.js /app/server.js
 COPY index.html login.html /app/public/
 COPY style.css /app/public/style.css
 COPY js/ /app/public/js/
 
-# Volume de données (/data/state.json)
+# Volume migration (lecture /data/state.json)
 RUN mkdir -p /data && chown node:node /data \
     && chmod -R a+rX /app
 USER node
