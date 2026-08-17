@@ -153,6 +153,12 @@ const MIME = {
 
 const STATIC_ROOT = __dirname + '/public';
 
+// HTML jamais caché (toujours frais après login/redirect), assets cacheables
+function isCacheable(rel) {
+  const ext = path.extname(rel).toLowerCase();
+  return !!ext && ext !== '.html';
+}
+
 function serveStatic(req, res, pathname) {
   let rel = pathname.replace(/^\/+/, '') || 'index.html';
   const target = path.normalize(path.join(STATIC_ROOT, rel));
@@ -164,14 +170,13 @@ function serveStatic(req, res, pathname) {
     if (err || !st.isFile()) {
       // App monopage : toute route inconnue retombe sur index.html
       if (!path.extname(rel)) {
-        sendFile(res, path.join(STATIC_ROOT, 'index.html'), 200, true);
+        sendFile(res, path.join(STATIC_ROOT, 'index.html'), 200, false);
       } else {
         res.writeHead(404).end('Not found');
       }
       return;
     }
-    const isAsset = /\.[a-z0-9]+$/i.test(rel);
-    sendFile(res, target, 200, isAsset);
+    sendFile(res, target, 200, isCacheable(rel));
   });
 }
 
@@ -285,6 +290,18 @@ const server = http.createServer(async (req, res) => {
 
     // --- statiques ---
     if (req.method === 'GET' || req.method === 'HEAD') {
+      // Redirection login : non-connecté → /login.html pour toute page app.
+      // Les assets (css/js) et la page login restent publics ; l'API est
+      // déjà protégée plus haut. Un visiteur non connecté ne reçoit jamais
+      // l'app, juste la page de connexion.
+      const authed = isValidSession(req.headers.cookie);
+      const ext = path.extname(pathname);
+      const isLoginPage = pathname === '/login.html';
+      const isAsset = !!ext && pathname !== '/index.html';
+      if (!authed && !isLoginPage && !isAsset) {
+        res.writeHead(302, { Location: '/login.html', 'Cache-Control': 'no-store' });
+        return res.end();
+      }
       return serveStatic(req, res, pathname);
     }
     return sendJson(res, 405, { error: 'Méthode non autorisée' });

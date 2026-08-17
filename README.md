@@ -31,10 +31,11 @@ Générateur de factures et devis professionnel, gratuit et open-source. Fonctio
 
 ```
 index.html
+login.html      — page de connexion (mode serveur)
 style.css
 js/
   state.js        — état, persistance (localStorage ou serveur), helpers
-  server-sync.js  — détection du backend, login, synchronisation serveur
+  server-sync.js  — détection du backend, redirection login, synchronisation serveur
   settings.js     — paramètres entreprise, logo, import/export
   clients.js      — gestion des fiches clients
   editor.js       — éditeur de facture/devis, lignes, calculs
@@ -49,6 +50,10 @@ Au chargement, l'app interroge `/api/health` : si un backend répond, elle
 passe en **mode serveur** (login + données sur le serveur) ; sinon elle
 reste en **mode local** (localStorage). Les données locales existantes
 sont migrées vers le serveur au premier lancement auto-hébergé.
+
+En mode serveur, toute page de l'app demandée sans session valide est
+redirigée (302) vers `/login.html` — l'app n'est pas servie avant
+authentification.
 
 ## Utilisation en local (démo statique)
 

@@ -1056,18 +1056,16 @@ body {
 }
 
 /* ============================================
-   LOGIN (mode serveur)
+   PAGE CONNEXION (login.html)
    ============================================ */
-.login-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 3000;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(4px);
+body.login-page {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 100vh;
+  margin: 0;
   padding: 24px;
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 60%, #f1f5f9 100%);
 }
 .login-card {
   background: var(--color-bg, #fff);

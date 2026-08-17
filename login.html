@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion — Facturier Pro</title>
+  <link rel="stylesheet" href="style.css?v=3">
+</head>
+<body class="login-page">
+  <form id="login-form" class="login-card">
+    <h2>Facturier Pro</h2>
+    <p class="login-hint">Cette instance synchronise vos données sur le serveur. Identifiez-vous pour y accéder.</p>
+    <label class="login-label">Email
+      <input type="email" id="login-email" required autocomplete="username">
+    </label>
+    <label class="login-label">Mot de passe
+      <input type="password" id="login-password" required autocomplete="current-password">
+    </label>
+    <div id="login-error" class="login-error"></div>
+    <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+  </form>
+
+  <script>
+    (async () => {
+      // Sans backend (ex. GitHub Pages) : cette page n'a pas de sens → app locale
+      try {
+        const h = await fetch('/api/health').then((r) => r.json());
+        if (!h || !h.server) throw new Error('local');
+      } catch (e) {
+        location.replace('/');
+        return;
+      }
+
+      // Déjà connecté : pas besoin du formulaire
+      const probe = await fetch('/api/state', { credentials: 'same-origin' });
+      if (probe.ok) {
+        location.replace('/');
+        return;
+      }
+
+      const errEl = document.getElementById('login-error');
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errEl.textContent = '';
+        document.querySelector('#login-form button[type=submit]').disabled = true;
+        try {
+          const r = await fetch('/api/login', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: document.getElementById('login-email').value.trim(),
+              password: document.getElementById('login-password').value,
+            }),
+          });
+          const j = await r.json().catch(() => ({}));
+          if (r.ok) {
+            location.replace('/');
+            return;
+          }
+          errEl.textContent = j.error || 'Identifiants incorrects';
+        } catch (err) {
+          errEl.textContent = 'Serveur injoignable';
+        }
+        document.querySelector('#login-form button[type=submit]').disabled = false;
+      });
+
+      document.getElementById('login-email').focus();
+    })();
+  </script>
+</body>
+</html>

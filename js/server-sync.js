@@ -3,12 +3,12 @@
    --------------------------------------------
    Si un backend /api répond (déploiement Docker
    self-hébergé), l'état vit sur le serveur après
-   login. Sinon (ex. GitHub Pages), l'app reste
-   100% locale via localStorage.
+   login (page dédiée /login.html, redirection par
+   le serveur si non connecté). Sinon (ex. GitHub
+   Pages), l'app reste 100% locale via localStorage.
    ============================================ */
 let SERVER_MODE = false;
 let syncTimer = null;
-let loginResolver = null;
 
 async function detectServerMode() {
   try {
@@ -24,72 +24,25 @@ async function detectServerMode() {
   return SERVER_MODE;
 }
 
-// ---------- Login ----------
-
-async function serverLogin(email, password) {
-  const r = await fetch('/api/login', {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const j = await r.json().catch(() => ({}));
-  if (r.status === 429) throw new Error(j.error || 'Trop de tentatives');
-  if (!r.ok) throw new Error(j.error || 'Identifiants incorrects');
-  return true;
-}
-
-function bindLoginOverlay() {
-  const form = document.getElementById('login-form');
-  const errEl = document.getElementById('login-error');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    errEl.textContent = '';
-    const email = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-password').value;
-    try {
-      await serverLogin(email, password);
-      document.getElementById('login-password').value = '';
-      hideLoginOverlay();
-      if (loginResolver) {
-        const res = loginResolver;
-        loginResolver = null;
-        res();
-      }
-    } catch (err) {
-      errEl.textContent = err.message;
-    }
-  });
-}
-
-function showLoginOverlayAndWait() {
-  return new Promise((resolve) => {
-    loginResolver = resolve;
-    const overlay = document.getElementById('login-overlay');
-    overlay.style.display = '';
-    document.getElementById('login-email').focus();
-  });
-}
-
-function hideLoginOverlay() {
-  document.getElementById('login-overlay').style.display = 'none';
+// Session expirée : le serveur renvoie 401 → page de connexion
+function redirectToLogin() {
+  location.replace('/login.html');
 }
 
 async function doLogout() {
   try {
     await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
   } catch (e) { /* ignore */ }
-  location.reload();
+  location.replace('/login.html');
 }
 
 // ---------- État ----------
 
 async function loadServerState() {
-  let r = await fetch('/api/state', { credentials: 'same-origin' });
+  const r = await fetch('/api/state', { credentials: 'same-origin' });
   if (r.status === 401) {
-    await showLoginOverlayAndWait();
-    r = await fetch('/api/state', { credentials: 'same-origin' });
-    if (!r.ok) throw new Error('auth');
+    redirectToLogin();
+    throw new Error('redirect-login');
   }
   if (!r.ok) throw new Error('state ' + r.status);
   const j = await r.json();
@@ -106,13 +59,13 @@ async function pushStateToServer() {
       body: JSON.stringify(state),
     });
     if (r.status === 401) {
-      // Session expirée : re-login puis re-push de l'état en mémoire
-      await showLoginOverlayAndWait();
-      return pushStateToServer();
+      redirectToLogin();
+      return false;
     }
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return true;
   } catch (e) {
+    if (e.message === 'redirect-login') return false;
     console.error('Sync serveur:', e);
     showToast('Synchronisation serveur impossible', 'error');
     return false;
@@ -131,7 +84,6 @@ function scheduleServerSync(delay = 400) {
  */
 async function syncBootstrap() {
   await detectServerMode();
-  bindLoginOverlay();
   document.getElementById('btn-logout').style.display = SERVER_MODE ? '' : 'none';
 
   if (!SERVER_MODE) {
@@ -141,8 +93,9 @@ async function syncBootstrap() {
 
   let serverState = null;
   try {
-    serverState = await loadServerState();
+    serverState = await loadServerState(); // 401 → redirection /login.html
   } catch (e) {
+    if (e.message === 'redirect-login') throw e;
     showToast('Serveur injoignable — mode local', 'error');
     loadState();
     SERVER_MODE = false;

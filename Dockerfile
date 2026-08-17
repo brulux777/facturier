@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Statiques servies par server.js depuis /app/public
 COPY server/server.js /app/server.js
-COPY index.html /app/public/index.html
+COPY index.html login.html /app/public/
 COPY style.css /app/public/style.css
 COPY js/ /app/public/js/
 
