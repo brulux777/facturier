@@ -388,6 +388,17 @@ const server = http.createServer(async (req, res) => {
         if (!stateLooksValid(body)) {
           return sendJson(res, 400, { error: 'Structure de données invalide' });
         }
+        // Garde anti-écrasement : le formulaire exige un nom d'entreprise.
+        // Un PUT sans nom alors que la base en a un = client désynchronisé
+        // (ex : vieux JS en cache) → refus, pas de perte de données.
+        const incomingName = (body.settings.companyName || '').trim();
+        if (!incomingName) {
+          const cur = await pool.query('SELECT data->\'settings\'->>\'companyName\' AS name FROM settings WHERE id = 1');
+          const storedName = cur.rowCount ? (cur.rows[0].name || '').trim() : '';
+          if (storedName) {
+            return sendJson(res, 409, { error: 'Refus : écrasement de données (client désynchronisé, rechargez la page)' });
+          }
+        }
         await writeStateToDb(body);
         return sendJson(res, 200, { ok: true, savedAt: new Date().toISOString() });
       }
