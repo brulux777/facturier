@@ -12,6 +12,8 @@ COPY index.html login.html /app/public/
 COPY DOCUMENTATION.md /app/public/DOCUMENTATION.md
 COPY style.css /app/public/style.css
 COPY js/ /app/public/js/
+# Moteur d'écriture manuscrite (IA) : script + poids (2,6 Mo)
+COPY vendor/ /app/public/vendor/
 
 # Volume migration (lecture /data/state.json)
 RUN mkdir -p /data && chown node:node /data \

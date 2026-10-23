@@ -429,6 +429,7 @@ const MIME = {
   '.jpg': 'image/jpeg',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
+  '.bin': 'application/octet-stream', // poids du moteur d'écriture manuscrite (IA)
   '.md': 'text/markdown; charset=utf-8',
 };
 

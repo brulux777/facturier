@@ -12,7 +12,7 @@ Générateur de factures et devis professionnel, gratuit et open-source. Fonctio
 - **Cahier des charges** — Markdown optionnel avec 3 emplacements au choix : intégré à la facture, en annexe sur une page séparée du même PDF, ou dans un second PDF téléchargé à part
 - **Paiement en 3 fois** — activable/désactivable par document, échéancier mensuel automatique (montants + dates)
 - **Gestion clients** — Enregistrement et réutilisation des fiches clients
-- **Signature de documents** — Upload d'un PDF, placement visuel des signatures (clic sur l'aperçu), plusieurs signataires, profils réutilisables (nom en écriture manuscrite ou dessin), choix de l'entreprise signataire, liste des documents signés avec re-téléchargement
+- **Signature de documents** — Upload d'un PDF, placement visuel des signatures (clic sur l'aperçu), plusieurs signataires, profils réutilisables (écriture manuscrite **générée par IA** à partir du texte, ou dessin), bloc de signature modulaire (dessin, nom, phrase, date, lignes supplémentaires — toutes facultatives), choix de l'entreprise signataire, liste des documents signés avec re-téléchargement
 - **PDF professionnel** — Génération et téléchargement de PDF conformes aux normes françaises
 - **Historique** — Recherche, filtrage, statut (brouillon/envoyée/payée), duplication
 - **Entreprises** — Une fiche par entité émettrice (adresse, SIRET, TVA, logo, banque, mentions légales, préfixes de numérotation)
@@ -31,7 +31,8 @@ Générateur de factures et devis professionnel, gratuit et open-source. Fonctio
 - [pdfmake](https://pdfmake.github.io/docs/) (CDN) — génération PDF vectorielle côté client
 - [pdf.js](https://mozilla.github.io/pdf.js/) (CDN) — aperçu des PDF à signer
 - [pdf-lib](https://pdf-lib.js.org/) (CDN) — apposition des signatures sur le PDF
-- Polices manuscrites Caveat, Dancing Script, Great Vibes, Parisienne (Google Fonts)
+- **Écriture manuscrite générée (IA)** — moteur RNN de [calligrapher.ai](https://calligrapher.ai) (d'après [sjvasquez/handwriting-synthesis](https://github.com/sjvasquez/handwriting-synthesis), papier *Generating Sequences With Recurrent Neural Networks* d'A. Graves) auto-hébergé dans `vendor/handwriting/` (script + poids 2,6 Mo) ; repli sur polices manuscrites si indisponible
+- Polices manuscrites Caveat, Dancing Script, Great Vibes, Parisienne (Google Fonts) — secours et textes du bloc
 - [Inter](https://fonts.google.com/specimen/Inter) (Google Fonts)
 - Serveur optionnel : Node.js — fichiers statiques + API de synchronisation + auth (dépendance `pg`)
 - Docker : `node:22-alpine` (web) + `postgres:16-alpine` (base de données, volume dédié)
@@ -49,6 +50,7 @@ js/
   companies.js    — entreprises émettrices (multi-entreprise) : CRUD, compteurs, settings effectifs
   settings.js     — page Compte : session, comptes de l'instance, import/export
   clients.js      — gestion des fiches clients
+  handwriting-synth.js — enveloppe du moteur d'écriture manuscrite IA (graine par signataire, accents, cache)
   signatures.js   — signature de PDF : assistant, profils signataires, liste
   editor.js       — éditeur de facture/devis, lignes, calculs, entreprise émettrice
   pdf.js          — aperçu HTML + génération PDF (pdfmake)
@@ -56,6 +58,7 @@ js/
   app.js          — initialisation et event bindings
 server/
   server.js       — serveur Node : statiques + API /api/state + /api/signed-docs + /api/users + auth (cookie HMAC)
+vendor/handwriting/ — moteur d'écriture IA auto-hébergé (engine.js + poids d.bin)
 package.json       — dépendance pg
 ```
 
@@ -91,14 +94,22 @@ entreprise, compteurs inclus.
 
 La vue **Signature** liste les documents signés (re-téléchargeables,
 supprimables). L'assistant **Signer un document** : upload du PDF
-(8 Mo max) → titre/type/date/description → entreprise signataire
-(parmi les profils de la page **Profils**, sinon les paramètres) →
-signataires (profils réutilisables : nom rendu en police manuscrite ou
-dessin enregistré) → placement visuel : cliquer sur l'aperçu du PDF
-pour poser chaque signature (déplaçable, redimensionnable), puis
-**Signer le document**. Le bloc signature (image + nom + fonction +
-entreprise + date) est incrusté dans le PDF, téléchargé immédiatement
-et archivé dans la liste.
+(8 Mo max) → titre/type/date/description → entreprise signataire →
+signataires (profils réutilisables) → **contenu du bloc** (chaque
+ligne est facultative : dessin, nom en écriture manuscrite générée,
+phrase libre, date, fonction, entreprise, lignes supplémentaires en
+nombre libre) → placement visuel (automatique toutes pages, précis ou
+manuel), puis **Signer le document**. Le bloc est incrusté dans le
+PDF, téléchargé immédiatement et archivé dans la liste.
+
+Chaque signataire possède sa « main » : un réseau de neurones
+(LSTM + attention, modèle de calligrapher.ai auto-hébergé) génère des
+traits d'écriture réalistes à partir du texte — nom, phrase, date ou
+lignes supplémentaires. La graine par signataire est stable (la même
+personne écrit toujours de la même façon), le bouton **Nouvelle
+variante** explore d'autres façons d'écrire, et le style/lisibilité
+sont réglables. Si le moteur est indisponible, l'app retombe sur les
+polices manuscrites.
 
 En mode local, les PDF signés vivent dans le `localStorage` (clé
 dédiée, quota du navigateur). En mode serveur, ils sont stockés en

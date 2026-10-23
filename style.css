@@ -2327,3 +2327,138 @@ body.login-page {
   color: var(--color-text-muted);
   margin-top: 2px;
 }
+
+/* ============================================
+   ÉCRITURE MANUSCRITE GÉNÉRÉE (IA) + BLOC DE SIGNATURE MODULAIRE
+   ============================================ */
+
+/* fiche signataire : réglages du générateur */
+.sp-synth-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.sp-synth-row select {
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.sp-bias-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  flex: 1;
+  min-width: 150px;
+}
+.sp-bias-label input[type="range"] {
+  width: 100%;
+}
+#sp-name-preview img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  max-height: 120px;
+}
+.sp-preview-loading {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+/* assistant de signature : contenu du bloc (lignes facultatives) */
+.sig-block-cfg {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.sig-block-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.sig-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--color-text);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+.sig-check input {
+  margin: 0;
+  accent-color: var(--sig-c, var(--color-primary));
+}
+.sig-block-phrase {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+.sig-block-phrase textarea,
+.sig-extra-line input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.82rem;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  resize: vertical;
+  font-family: inherit;
+}
+.sig-block-phrase textarea:focus,
+.sig-extra-line input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+.sig-extra-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sig-extra-title {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+.sig-extra-line {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.sig-extra-line .btn-ghost {
+  padding: 2px 8px;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* vue compacte de l'assistant (colonne gauche étroite) */
+#view-signatureNew .sig-block-checks {
+  gap: 4px 10px;
+}
+#view-signatureNew .sig-check {
+  font-size: 0.72rem;
+}
+#view-signatureNew .sig-block-phrase textarea,
+#view-signatureNew .sig-extra-line input {
+  padding: 4px 7px;
+  font-size: 0.78rem;
+}

@@ -127,14 +127,28 @@ pas une signature électronique qualifiée au sens du règlement eIDAS).
 2. Renseigner titre, type, date, description.
 3. Choisir **l'entreprise signataire** (Contrôle Web ou ELD Contrôle
    SAS, depuis les profils).
-4. Sélectionner les signataires (profils réutilisables : nom rendu en
-   police manuscrite ou dessin enregistré). Chaque signataire peut
-   avoir **sa propre entreprise signataire** (par défaut celle du
-   document), une **mention** (ex. « Bon pour accord », suggestions
-   proposées, champ libre) et régler le **texte de son bloc** :
-   taille (70–180 %), couleur et police (Inter, Georgia ou les
-   écritures manuscrites).
-5. Placer les signatures :
+4. Sélectionner les signataires (profils réutilisables). Chaque signataire
+   peut avoir **sa propre entreprise signataire** (par défaut celle du
+   document) et une **mention** (ex. « Bon pour accord », suggestions
+   proposées, champ libre).
+5. Composer le **contenu du bloc** — chaque ligne est facultative :
+   - **dessin** de la signature (si le profil en a un) ;
+   - **nom / prénom** en écriture manuscrite **générée par IA** à partir
+     du texte (réseau de neurones LSTM du modèle calligrapher.ai,
+     auto-hébergé dans `vendor/handwriting/`, ~2,6 Mo chargés une fois) ;
+   - **phrase** manuscrite libre (multi-lignes, transformée en écriture
+     à la main) ;
+   - **date** manuscrite (« Fait à …, le 23 octobre 2026 ») ;
+   - **fonction** et **entreprise** (textes du bloc) ;
+   - **lignes supplémentaires** manuscrites, en nombre libre.
+   Chaque signataire possède sa « main » : graine stable, style
+   (10 styles + aléatoire), lisibilité et **nouvelle variante**
+   réglables dans sa fiche (page Signataires). Accents gérés
+   (translittérés), traits identiques à graine identique. Si le moteur
+   est indisponible, repli automatique sur les polices manuscrites
+   (Caveat…). Les **textes du bloc** restent réglables : taille
+   (70–180 %), couleur et police.
+6. Placer les signatures :
    - **automatique** : chaque signataire est placé sur **toutes les
      pages** à la position par défaut choisie (bas, haut, bord
      gauche, bord droit, ou un des quatre coins), avec répartition
@@ -153,9 +167,10 @@ pas une signature électronique qualifiée au sens du règlement eIDAS).
    Dans les deux modes, chaque bloc reste ajustable (glisser,
    redimensionner, supprimer), puis **Signer le document**.
 
-Le bloc signature (mention + image + nom + fonction + entreprise +
-date) est incrusté dans le PDF, téléchargé immédiatement et archivé
-dans la liste « Signature » (avec mention et entreprise par
+Le bloc signature (mention + les lignes choisies : dessin, nom
+manuscrit généré, phrase, date, fonction, entreprise, lignes
+supplémentaires) est incrusté dans le PDF, téléchargé immédiatement et
+archivé dans la liste « Signature » (avec mention et entreprise par
 signataire). En mode serveur, les PDF signés sont stockés en base
 (table `signed_docs`, 10 Mo max).
 
