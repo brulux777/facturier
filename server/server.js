@@ -575,7 +575,7 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, { error: 'Lien invalide ou mot de passe trop court (8 caractères minimum)' });
       }
       const { rows } = await pool.query(
-        `SELECT id, user_id FROM password_resets
+        `SELECT user_id FROM password_resets
          WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()`,
         [sha256hex(token)]
       );
@@ -584,14 +584,17 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, { error: 'Lien invalide ou expiré — refaites une demande de réinitialisation' });
       }
       const hash = await hashPassword(password);
-      await pool.query('BEGIN');
+      const client = await pool.connect();
       try {
-        await pool.query('UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1', [reset.user_id, hash]);
-        await pool.query('UPDATE password_resets SET used_at = now() WHERE id = $1', [reset.id]);
-        await pool.query('COMMIT');
+        await client.query('BEGIN');
+        await client.query('UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1', [reset.user_id, hash]);
+        await client.query('UPDATE password_resets SET used_at = now() WHERE token_hash = $1', [sha256hex(token)]);
+        await client.query('COMMIT');
       } catch (e) {
-        await pool.query('ROLLBACK').catch(() => {});
+        await client.query('ROLLBACK').catch(() => {});
         throw e;
+      } finally {
+        client.release();
       }
       return sendJson(res, 200, { ok: true });
     }
