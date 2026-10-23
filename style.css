@@ -1514,8 +1514,73 @@ body.login-page {
   font-weight: 400;
 }
 
+.sig-signer-config-subtitle {
+  margin-top: 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.sig-signer-config-fields select,
+.sig-signer-config-fields input[type="text"],
+.sig-signer-config-fields input[type="color"] {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-family: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.sig-signer-config-fields input[type="color"] {
+  height: 36px;
+  padding: 3px 5px;
+  cursor: pointer;
+}
+
+.sig-signer-config-fields select:focus,
+.sig-signer-config-fields input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+/* réglages texte du bloc : taille / couleur / police */
+.sig-style-fields {
+  grid-template-columns: 1.4fr 0.8fr 1fr;
+}
+
+.sig-style-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sig-style-size input[type="range"] {
+  flex: 1;
+  margin: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.sig-style-size output {
+  min-width: 42px;
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 600;
+}
+
 @media (max-width: 640px) {
-  .sig-signer-config-fields {
+  .sig-signer-config-fields,
+  .sig-style-fields {
     grid-template-columns: 1fr;
   }
 }

@@ -25,6 +25,20 @@ const SIG_FONTS = [
 
 const SIG_COLORS = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#dc2626', '#0891b2'];
 
+// Polices proposées pour les textes du bloc de signature
+// (mention, nom, fonction, entreprise, date)
+const SIG_TEXT_FONTS = [
+  { family: 'Inter', label: 'Inter (défaut)' },
+  { family: 'Georgia', label: 'Georgia (serif)' },
+  { family: 'Caveat', label: 'Caveat' },
+  { family: 'Dancing Script', label: 'Dancing Script' },
+  { family: 'Great Vibes', label: 'Great Vibes' },
+  { family: 'Parisienne', label: 'Parisienne' },
+];
+
+// Réglages par défaut des textes du bloc (par signataire, dans l'assistant)
+const SIG_TEXT_STYLE_DEFAULTS = { scale: 1, color: '#1e293b', font: 'Inter' };
+
 let signedDocsCache = null; // métadonnées des documents signés
 let sigWizard = null;       // état de l'assistant de création
 const sigImgCache = {};     // images de signature (dataUrl) par profil
@@ -386,6 +400,25 @@ function signerMention(profileId) {
   return (meta.mention || '').trim();
 }
 
+// Style des textes du bloc (taille, couleur, police).
+// Renvoie l'objet vivant de signerMeta pour que les réglages persistent.
+function signerTextStyle(profileId) {
+  if (!sigWizard) return { ...SIG_TEXT_STYLE_DEFAULTS };
+  const meta = sigWizard.signerMeta[profileId]
+    || (sigWizard.signerMeta[profileId] = {});
+  if (!meta.textStyle) meta.textStyle = { ...SIG_TEXT_STYLE_DEFAULTS };
+  Object.keys(SIG_TEXT_STYLE_DEFAULTS).forEach((k) => {
+    if (meta.textStyle[k] === undefined) meta.textStyle[k] = SIG_TEXT_STYLE_DEFAULTS[k];
+  });
+  return meta.textStyle;
+}
+
+function sigTextFontStack(family) {
+  if (family === 'Georgia') return 'Georgia, "Times New Roman", serif';
+  if (family === 'Inter') return 'Inter, sans-serif';
+  return `"${family}", Inter, sans-serif`;
+}
+
 // --- puces de signataires (sélection + signataire actif) ---
 
 function renderWizardSigners() {
@@ -442,6 +475,7 @@ function renderSignersConfig() {
     }
     const meta = sigWizard.signerMeta[id];
     const color = SIG_COLORS[signerColorIdx(id) % SIG_COLORS.length];
+    const style = signerTextStyle(id);
     const options = [
       `<option value="">Entreprise du document${docCompany.name ? ' — ' + escapeHTML(docCompany.name) : ''}</option>`,
       ...companies
@@ -461,6 +495,23 @@ function renderSignersConfig() {
                    value="${escapeHTML(meta.mention || '').replace(/"/g, '&quot;')}" placeholder="Ex : Bon pour accord">
           </label>
         </div>
+        <div class="sig-signer-config-subtitle">Texte du bloc — taille, couleur, police</div>
+        <div class="sig-signer-config-fields sig-style-fields">
+          <label>Taille du texte
+            <span class="sig-style-size">
+              <input type="range" min="0.7" max="1.8" step="0.05" data-sc-size="${id}" value="${style.scale}">
+              <output data-sc-size-out="${id}">${Math.round(style.scale * 100)} %</output>
+            </span>
+          </label>
+          <label>Couleur
+            <input type="color" data-sc-color="${id}" value="${style.color}">
+          </label>
+          <label>Police
+            <select data-sc-font="${id}">
+              ${SIG_TEXT_FONTS.map((f) => `<option value="${f.family}"${style.font === f.family ? ' selected' : ''}>${escapeHTML(f.label)}</option>`).join('')}
+            </select>
+          </label>
+        </div>
       </div>`;
   }).join('');
 
@@ -478,6 +529,27 @@ function renderSignersConfig() {
       const meta = sigWizard.signerMeta[inp.dataset.scMention];
       if (!meta) return;
       meta.mention = inp.value;
+      scheduleSigBlocksRefresh();
+    });
+  });
+  box.querySelectorAll('input[data-sc-size]').forEach((inp) => {
+    inp.addEventListener('input', () => {
+      const st = signerTextStyle(inp.dataset.scSize);
+      st.scale = parseFloat(inp.value) || 1;
+      const out = box.querySelector(`output[data-sc-size-out="${inp.dataset.scSize}"]`);
+      if (out) out.textContent = Math.round(st.scale * 100) + ' %';
+      scheduleSigBlocksRefresh();
+    });
+  });
+  box.querySelectorAll('input[data-sc-color]').forEach((inp) => {
+    inp.addEventListener('input', () => {
+      signerTextStyle(inp.dataset.scColor).color = inp.value;
+      scheduleSigBlocksRefresh();
+    });
+  });
+  box.querySelectorAll('select[data-sc-font]').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      signerTextStyle(sel.dataset.scFont).font = sel.value;
       scheduleSigBlocksRefresh();
     });
   });
@@ -658,21 +730,29 @@ async function getSigSignatureImg(profile) {
   return entry;
 }
 
-// Bloc complet : mention + signature + nom + fonction + entreprise + date
+// Bloc complet : mention + signature + nom + fonction + entreprise + date.
+// Taille (échelle), couleur et police des textes réglables par signataire.
 async function buildSigBlockFor(profileId) {
   const profile = (state.signatureProfiles || []).find((p) => p.id === profileId);
   if (!profile) return null;
   const company = signerCompanySnapshot(profileId);
   const mention = signerMention(profileId);
   const dateStr = sigWizard.date || todayISO();
-  const key = [profileId, company.name, company.city, dateStr, mention].join('|');
+  const style = signerTextStyle(profileId);
+  const key = [profileId, company.name, company.city, dateStr, mention,
+    style.scale, style.color, style.font].join('|');
   const cached = sigWizard.blocks[profileId];
   if (cached && cached.key === key) return cached;
 
   const sig = await getSigSignatureImg(profile);
   if (!sig) return null;
 
-  const W = 640, pad = 14, lineH = 30;
+  const W = 640, pad = 16;
+  const maxTextW = W - 2 * pad;
+  const s = style.scale || 1;
+  const fam = sigTextFontStack(style.font);
+  const color = style.color || '#1e293b';
+
   const maxSigW = 420, maxSigH = 150;
   const scale = Math.min(maxSigW / sig.w, maxSigH / sig.h, 1.6);
   const sigW = Math.round(sig.w * scale);
@@ -683,35 +763,44 @@ async function buildSigBlockFor(profileId) {
   else placeLine = `Le ${formatDate(dateStr)}`;
 
   const lines = [
-    { text: profile.name || '', font: '700 24px Inter', color: '#1e293b' },
-    { text: profile.role || '', font: '400 19px Inter', color: '#334155' },
-    { text: company.name || '', font: 'italic 400 19px Inter', color: '#334155' },
-    { text: placeLine, font: '400 17px Inter', color: '#64748b' },
+    { text: profile.name || '', weight: '700', base: 33 },
+    { text: profile.role || '', weight: '400', base: 26 },
+    { text: company.name || '', weight: 'italic 400', base: 26 },
+    { text: placeLine, weight: '400', base: 22 },
   ].filter((l) => l.text && l.text.trim());
 
+  const mentionH = mention ? Math.max(28, Math.round(34 * s)) : 0;
+  const lineH = Math.max(24, Math.round(38 * s));
+
   try {
-    await document.fonts.load('700 24px Inter');
-    await document.fonts.load('italic 600 21px Inter');
+    await Promise.all(lines.map((l) =>
+      document.fonts.load(`${l.weight} ${Math.round(l.base * s)}px ${fam}`)));
+    if (mention) await document.fonts.load(`italic 600 ${Math.round(27 * s)}px ${fam}`);
   } catch (e) { /* déjà là */ }
 
-  const mentionH = mention ? 32 : 0;
   const c = document.createElement('canvas');
   c.width = W;
   c.height = pad + mentionH + sigH + 14 + lines.length * lineH + pad;
   const ctx = c.getContext('2d');
-  if (mention) {
-    ctx.font = 'italic 600 21px Inter';
-    ctx.fillStyle = '#334155';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillText(mention, pad, pad + 20);
-  }
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = color;
+
+  // écrit une ligne en réduisant sa taille si nécessaire pour tenir dans le bloc
+  const drawLine = (text, weight, base, x, y) => {
+    let size = Math.max(11, Math.round(base * s));
+    ctx.font = `${weight} ${size}px ${fam}`;
+    while (size > 11 && ctx.measureText(text).width > maxTextW) {
+      size -= 1;
+      ctx.font = `${weight} ${size}px ${fam}`;
+    }
+    ctx.fillText(text, x, y);
+  };
+
+  if (mention) drawLine(mention, 'italic 600', 27, pad, pad + Math.round(25 * s));
   ctx.drawImage(await loadImage(sig.url), pad, pad + mentionH, sigW, sigH);
-  let y = pad + mentionH + sigH + 14 + 21;
+  let y = pad + mentionH + sigH + 14 + Math.round(28 * s);
   lines.forEach((l) => {
-    ctx.font = l.font;
-    ctx.fillStyle = l.color;
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillText(l.text, pad, y);
+    drawLine(l.text, l.weight, l.base, pad, y);
     y += lineH;
   });
 
@@ -802,7 +891,7 @@ function updateSigPlaceModeUI() {
   if (group) group.hidden = !isAuto;
   if (hint) {
     hint.textContent = isAuto
-      ? 'En mode automatique, chaque signataire est placé sur toutes les pages à la position choisie. Ajustez ensuite librement : glisser, redimensionner, supprimer (« × »).'
+      ? 'En mode automatique, chaque signataire est placé sur toutes les pages. Déplacer ou redimensionner un bloc entraîne ses copies sur toutes les autres pages ; « × » supprime uniquement la copie de cette page.'
       : 'En mode manuel, sélectionnez un signataire (puces ci-dessus) puis cliquez sur le document pour placer ou déplacer sa signature. Cliquez sur d\'autres pages pour l\'y ajouter aussi.';
   }
 }
@@ -843,6 +932,16 @@ function placeActiveSigner(pageIdx, ev) {
     probe.page = pageIdx;
     probe.xPct = xPct;
     probe.yPct = yPct;
+    // en mode automatique, les copies des autres pages suivent le même placement
+    if (sigWizard.placementMode === 'auto') {
+      sigWizard.placements.forEach((p) => {
+        if (p.profileId === probe.profileId && p.id !== probe.id) {
+          const hPct = placementHeightPct(p);
+          p.xPct = Math.max(0, Math.min(1 - p.wPct, xPct));
+          p.yPct = Math.max(0, Math.min(1 - hPct, yPct));
+        }
+      });
+    }
   } else {
     sigWizard.placements.push({
       id: generateId(),
@@ -870,6 +969,7 @@ function renderSigPlacements() {
       const box = document.createElement('div');
       box.className = 'sig-box' + (p.profileId === sigWizard.activeSigner ? ' active' : '');
       box.style.setProperty('--sig-c', color);
+      box.dataset.pid = p.id;
       box.style.left = (p.xPct * 100) + '%';
       box.style.top = (p.yPct * 100) + '%';
       box.style.width = (p.wPct * 100) + '%';
@@ -885,10 +985,11 @@ function renderSigPlacements() {
 
       const tools = document.createElement('div');
       tools.className = 'sig-box-tools';
+      const linked = sigWizard.placementMode === 'auto';
       [
-        { label: '−', title: 'Réduire', fn: () => { p.wPct = Math.max(0.08, p.wPct - 0.02); afterPlacementChange(); } },
-        { label: '+', title: 'Agrandir', fn: () => { p.wPct = Math.min(0.9, p.wPct + 0.02); afterPlacementChange(); } },
-        { label: '×', title: 'Retirer', fn: () => removePlacement(p.id) },
+        { label: '−', title: linked ? 'Réduire (sur toutes les pages)' : 'Réduire', fn: () => resizePlacement(p, -0.02) },
+        { label: '+', title: linked ? 'Agrandir (sur toutes les pages)' : 'Agrandir', fn: () => resizePlacement(p, 0.02) },
+        { label: '×', title: 'Retirer de cette page', fn: () => removePlacement(p.id) },
       ].forEach((b) => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -927,6 +1028,19 @@ function removePlacement(placementId) {
   updateSignButtonState();
 }
 
+// Redimensionne un bloc ; en mode automatique, la nouvelle largeur s'applique
+// aussi aux copies du signataire sur toutes les autres pages.
+function resizePlacement(placement, delta) {
+  const w = Math.max(0.08, Math.min(0.9, placement.wPct + delta));
+  placement.wPct = w;
+  if (sigWizard.placementMode === 'auto') {
+    sigWizard.placements.forEach((p) => {
+      if (p.profileId === placement.profileId && p.id !== placement.id) p.wPct = w;
+    });
+  }
+  afterPlacementChange();
+}
+
 function enableSigBoxDrag(box, overlay, placement) {
   box.addEventListener('pointerdown', (ev) => {
     if (ev.button !== 0) return;
@@ -938,17 +1052,36 @@ function enableSigBoxDrag(box, overlay, placement) {
     const origX = placement.xPct;
     const origY = placement.yPct;
 
-    const onMove = (e) => {
-      const wPct = placement.wPct;
-      const hPct = placementHeightPct(placement);
-      let x = origX + (e.clientX - startX) / rect.width;
-      let y = origY + (e.clientY - startY) / rect.height;
-      x = Math.max(0, Math.min(1 - wPct, x));
+    // En mode automatique, les copies du signataire sur les autres pages
+    // suivent le déplacement (même translation, en % de page).
+    const followers = sigWizard.placementMode === 'auto'
+      ? sigWizard.placements
+        .filter((p) => p.profileId === placement.profileId && p.page !== placement.page)
+        .map((p) => ({
+          p,
+          origX: p.xPct,
+          origY: p.yPct,
+          box: document.querySelector(`#sig-pages .sig-box[data-pid="${p.id}"]`),
+        }))
+      : [];
+
+    const moveBox = (p, x, y, el) => {
+      const hPct = placementHeightPct(p);
+      x = Math.max(0, Math.min(1 - p.wPct, x));
       y = Math.max(0, Math.min(1 - hPct, y));
-      placement.xPct = x;
-      placement.yPct = y;
-      box.style.left = (x * 100) + '%';
-      box.style.top = (y * 100) + '%';
+      p.xPct = x;
+      p.yPct = y;
+      if (el) {
+        el.style.left = (x * 100) + '%';
+        el.style.top = (y * 100) + '%';
+      }
+    };
+
+    const onMove = (e) => {
+      const dx = (e.clientX - startX) / rect.width;
+      const dy = (e.clientY - startY) / rect.height;
+      moveBox(placement, origX + dx, origY + dy, box);
+      followers.forEach((f) => moveBox(f.p, f.origX + dx, f.origY + dy, f.box));
     };
     const onUp = () => {
       box.removeEventListener('pointermove', onMove);

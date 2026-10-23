@@ -130,15 +130,20 @@ pas une signature électronique qualifiée au sens du règlement eIDAS).
 4. Sélectionner les signataires (profils réutilisables : nom rendu en
    police manuscrite ou dessin enregistré). Chaque signataire peut
    avoir **sa propre entreprise signataire** (par défaut celle du
-   document) et une **mention** (ex. « Bon pour accord », suggestions
-   proposées, champ libre).
+   document), une **mention** (ex. « Bon pour accord », suggestions
+   proposées, champ libre) et régler le **texte de son bloc** :
+   taille (70–180 %), couleur et police (Inter, Georgia ou les
+   écritures manuscrites).
 5. Placer les signatures :
    - **automatique** : chaque signataire est placé sur **toutes les
      pages** à la position choisie (bas, haut, bord gauche, bord
      droit), avec répartition sans chevauchement (côte à côte en
-     bas/haut, empilés à gauche/droite) ;
+     bas/haut, empilés à gauche/droite). Déplacer ou redimensionner
+     un bloc entraîne ses copies sur toutes les autres pages ; « × »
+     supprime uniquement la copie de la page ;
    - **manuel** : cliquer sur l'aperçu pour placer ou déplacer une
-     signature (un même signataire peut figurer sur plusieurs pages).
+     signature (un même signataire peut figurer sur plusieurs pages,
+     chaque copie étant alors indépendante).
 
    Dans les deux modes, chaque bloc reste ajustable (glisser,
    redimensionner, supprimer), puis **Signer le document**.
