@@ -45,7 +45,6 @@ const SIG_TEXT_STYLE_DEFAULTS = { scale: 1, color: '#1e293b', font: 'Inter' };
 
 let signedDocsCache = null; // métadonnées des documents signés
 let sigWizard = null;       // état de l'assistant de création
-const sigImgCache = {};     // images de signature (dataUrl) par profil
 
 // ---------- helpers ----------
 
@@ -409,6 +408,7 @@ function signerColorIdx(profileId) {
 // Styles proposés pour chaque ligne du bloc de signature
 const SIG_LINE_STYLES = [
   { value: 'script', label: 'Manuscrite (IA)' },
+  { value: 'draw', label: 'Dessin à la main' },
   { value: 'mention', label: 'Mention (italique)' },
   { value: 'print', label: 'Texte' },
 ];
@@ -424,17 +424,78 @@ function profileTextStyle(profile) {
   return p.textStyle;
 }
 
+// « Main » d'une ligne manuscrite : style, lisibilité, épaisseur et
+// variante — chaque ligne est réglée indépendamment.
+function lineHand(line) {
+  const h = (line && line.hand) || {};
+  return {
+    style: h.style === undefined || h.style === null ? '-' : String(h.style),
+    bias: typeof h.bias === 'number' ? h.bias : 0.75,
+    width: typeof h.width === 'number' ? h.width : 1.2,
+    variant: h.variant || 0,
+  };
+}
+
+// Graine d'une ligne : stable (même traits à chaque rendu), propre à
+// chaque ligne et à chaque variante.
+function lineSeedFor(line, text) {
+  const h = lineHand(line);
+  return HandwritingSynth.hashStr(
+    ((line && line.id) || 'ligne') + '/' + h.variant + '/' + (text || ''));
+}
+
+// Libellé d'un signataire : texte de sa première ligne renseignée
+// (utilisé pour la liste et les puces de l'assistant).
+function displayName(profile) {
+  const lines = (profile && Array.isArray(profile.lines)) ? profile.lines : [];
+  for (const l of lines) {
+    const t = String((l && l.text) || '').split('\n').map((s) => s.trim())
+      .find((s) => s.length > 0);
+    if (t) return t.length > 32 ? t.slice(0, 32) + '…' : t;
+    if (l && l.style === 'draw' && l.drawData) return 'Signature dessinée';
+  }
+  return 'Signataire';
+}
+
 // Lignes du bloc définies sur la fiche du signataire (facultatives, en
-// nombre libre). Les profils créés avant cette version retrouvent le
-// contenu par défaut de l'ancien assistant (mention + date + fonction).
+// nombre libre). Migration des profils antérieurs : le nom devient la
+// première ligne manuscrite, le dessin (s'il existe) une ligne dessin,
+// puis mention + date + fonction de l'ancien bloc par défaut.
 function ensureProfileLines(profile) {
   const p = profile || {};
-  if (Array.isArray(p.lines)) return p.lines;
-  p.lines = [
-    { id: generateId(), text: 'Bon pour accord', style: 'mention' },
-    { id: generateId(), text: 'Fait le {date}', style: 'script' },
-  ];
+  const scriptLine = (text, extra) => Object.assign(
+    { id: generateId(), text, style: 'script' }, extra || {});
+  if (Array.isArray(p.lines)) {
+    // profils déjà migrés une 1re fois (sans ligne « nom ») : on l'ajoute
+    if (p.name && !p.nameMerged && !p.lines.some((l) => l && l.text === p.name)) {
+      p.lines.unshift(scriptLine(p.name, {
+        hand: {
+          style: p.handStyle === undefined || p.handStyle === null ? '-' : String(p.handStyle),
+          bias: typeof p.handBias === 'number' ? p.handBias : 0.75,
+          variant: p.handVariant || 0,
+        },
+      }));
+    }
+    p.nameMerged = true;
+    return p.lines;
+  }
+  p.lines = [];
+  if (p.styleType === 'draw' && p.drawData) {
+    p.lines.push({ id: generateId(), style: 'draw', text: '', drawData: p.drawData });
+  }
+  if (p.name) {
+    p.lines.push(scriptLine(p.name, {
+      hand: {
+        style: p.handStyle === undefined || p.handStyle === null ? '-' : String(p.handStyle),
+        bias: typeof p.handBias === 'number' ? p.handBias : 0.75,
+        variant: p.handVariant || 0,
+      },
+    }));
+  }
+  p.lines.push({ id: generateId(), text: 'Bon pour accord', style: 'mention' });
+  p.lines.push(scriptLine('Fait le {date}'));
   if (p.role) p.lines.push({ id: generateId(), text: p.role, style: 'print' });
+  p.nameMerged = true;
   return p.lines;
 }
 
@@ -445,28 +506,6 @@ function sigTextFontStack(family) {
 }
 
 // ---------- écriture manuscrite générée (IA) ----------
-// Chaque signataire possède sa « main » : une graine stable (dérivée de
-// son id ou choisie à la création), un style de modèle, une lisibilité,
-// une épaisseur de trait et un numéro de variante. La même graine + le
-// même texte redonnent exactement les mêmes traits.
-
-function profileHand(profile) {
-  const p = profile || {};
-  return {
-    seed: (p.handSeed >>> 0) || HandwritingSynth.hashStr(p.id || 'signataire'),
-    style: p.handStyle === undefined || p.handStyle === null ? '-' : String(p.handStyle),
-    bias: typeof p.handBias === 'number' ? p.handBias : 0.75,
-    width: typeof p.handWidth === 'number' ? p.handWidth : 1.2,
-    variant: p.handVariant || 0,
-  };
-}
-
-// Graine effective pour un texte donné : stable pour un signataire, mais
-// chaque texte (et chaque variante) s'écrit avec ses propres variations.
-function handSeedFor(profile, text, salt) {
-  const h = profileHand(profile);
-  return HandwritingSynth.hashStr(h.seed + '/' + h.variant + '/' + (salt || 0) + '/' + (text || ''));
-}
 
 let synthFallbackWarned = false;
 function warnSynthFallback() {
@@ -475,37 +514,16 @@ function warnSynthFallback() {
   showToast('Moteur d\'écriture IA indisponible — polices manuscrites utilisées', 'error');
 }
 
-// Nom d'un signataire en écriture manuscrite générée (image canvas).
-async function getSynthSignatureImg(profile) {
-  const h = profileHand(profile);
-  const text = ((profile && profile.name) || 'Signature').trim();
-  const key = [profile.id, 'synth', h.seed, h.variant, h.style, h.bias, h.width, text].join('|');
-  if (sigImgCache[key]) return sigImgCache[key];
-  try {
-    const img = await HandwritingSynth.generate(text, {
-      style: h.style, bias: h.bias, width: h.width,
-      seed: handSeedFor(profile, text, 0), ink: '#111827',
-    });
-    const entry = { url: img.url, w: img.w, h: img.h };
-    sigImgCache[key] = entry;
-    return entry;
-  } catch (e) {
-    console.warn('Écriture IA indisponible:', e);
-    warnSynthFallback();
-    return null;
-  }
-}
-
-// Ligne de texte en écriture manuscrite générée (phrase, date, ligne
-// supplémentaire) — même « main » que la signature, couleur du bloc.
-async function getSynthLineImg(profile, text, ink, salt) {
-  const h = profileHand(profile);
+// Ligne de texte en écriture manuscrite générée, avec la « main » propre
+// à la ligne (style, lisibilité, variante) et la couleur du bloc.
+async function synthLineImg(line, text, ink) {
+  const h = lineHand(line);
   const t = String(text || '').trim();
   if (!t) return null;
   try {
     return await HandwritingSynth.generate(t, {
-      style: h.style, bias: h.bias, width: Math.max(0.75, h.width * 0.92),
-      seed: handSeedFor(profile, t, salt || 0), ink: ink || '#1e293b',
+      style: h.style, bias: h.bias, width: h.width,
+      seed: lineSeedFor(line, t), ink: ink || '#1e293b',
     });
   } catch (e) {
     console.warn('Écriture IA indisponible (ligne):', e);
@@ -540,35 +558,50 @@ function renderWizardSigners() {
     const selected = sigWizard.signers.includes(p.id);
     const active = sigWizard.activeSigner === p.id;
     const color = SIG_COLORS[signerColorIdx(p.id) % SIG_COLORS.length];
+    const label = displayName(p);
     return `
       <button type="button"
               class="signer-chip${selected ? ' selected' : ''}${active ? ' active' : ''}"
               data-profile="${p.id}"
               style="--sig-c: ${color}"
-              title="${active ? 'Cliquer pour retirer ce signataire' : selected ? 'Cliquer pour rendre actif, puis cliquer sur le document' : 'Cliquer pour ajouter ce signataire'}">
-        <span class="signer-chip-name">${escapeHTML(p.name)}</span>
-        ${p.role ? `<span class="signer-chip-role">${escapeHTML(p.role)}</span>` : ''}
+              title="${selected ? 'Cliquer pour rendre actif, puis cliquer sur le document' : 'Cliquer pour ajouter ce signataire'}">
+        <span class="signer-chip-name">${escapeHTML(label)}</span>
+        ${selected ? '<span class="signer-chip-remove" title="Retirer ce signataire" role="button" aria-label="Retirer ce signataire">×</span>' : ''}
       </button>`;
   }).join('');
 
   box.querySelectorAll('.signer-chip').forEach((chip) => {
-    chip.addEventListener('click', () => toggleWizardSigner(chip.dataset.profile));
+    chip.addEventListener('click', (ev) => {
+      if (ev.target.closest('.signer-chip-remove')) {
+        removeWizardSigner(chip.dataset.profile);
+      } else {
+        toggleWizardSigner(chip.dataset.profile);
+      }
+    });
   });
 }
 
 function toggleWizardSigner(profileId) {
-  const idx = sigWizard.signers.indexOf(profileId);
-  if (idx === -1) {
+  if (!sigWizard.signers.includes(profileId)) {
     sigWizard.signers.push(profileId);
-    sigWizard.activeSigner = profileId;
-  } else if (sigWizard.activeSigner === profileId) {
-    // 2e clic sur la puce active : retrait du signataire (+ ses placements)
-    sigWizard.signers.splice(idx, 1);
-    sigWizard.placements = sigWizard.placements.filter((p) => p.profileId !== profileId);
-    sigWizard.activeSigner = sigWizard.signers.length ? sigWizard.signers[sigWizard.signers.length - 1] : null;
-  } else {
-    sigWizard.activeSigner = profileId;
   }
+  sigWizard.activeSigner = profileId;
+  afterSignersChange();
+}
+
+// Retrait d'un signataire ajouté par erreur (+ les placements déjà posés).
+function removeWizardSigner(profileId) {
+  const idx = sigWizard.signers.indexOf(profileId);
+  if (idx === -1) return;
+  sigWizard.signers.splice(idx, 1);
+  sigWizard.placements = sigWizard.placements.filter((p) => p.profileId !== profileId);
+  if (sigWizard.activeSigner === profileId) {
+    sigWizard.activeSigner = sigWizard.signers.length ? sigWizard.signers[sigWizard.signers.length - 1] : null;
+  }
+  afterSignersChange();
+}
+
+function afterSignersChange() {
   renderWizardSigners();
   if (sigWizard.placementMode === 'auto') {
     applyAutoPlacements(); // reconstruit blocs + placements, puis re rend
@@ -681,79 +714,25 @@ async function renderWizardPdfPages() {
 
 // --- images de signature & blocs (canvas → PNG) ---
 
-async function getSigSignatureImg(profile, opts) {
-  if (!profile) return null;
-  const noCache = !!(opts && opts.noCache);
-  const key = profile.styleType === 'draw'
-    ? profile.id + '|draw|' + (profile.drawData ? profile.drawData.length : 0)
-    : profile.id + '|' + (profile.font || '') + '|' + (profile.name || '');
-  if (!noCache && sigImgCache[key]) return sigImgCache[key];
-
-  let canvas = null;
-  if (profile.styleType === 'draw' && profile.drawData) {
-    const img = await loadImage(profile.drawData);
-    canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    canvas.getContext('2d').drawImage(img, 0, 0);
-  } else {
-    // écriture manuscrite générée par le moteur IA (calligrapher.ai) ;
-    // police manuscrite en secours si le moteur est indisponible
-    const synth = await getSynthSignatureImg(profile);
-    if (synth) {
-      const img = await loadImage(synth.url);
-      canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      canvas.getContext('2d').drawImage(img, 0, 0);
-    } else {
-    const font = SIG_FONTS.find((f) => f.family === profile.font) || SIG_FONTS[0];
-    try {
-      await document.fonts.load(`400 120px "${font.family}"`);
-    } catch (e) { /* police déjà disponible */ }
-    const c = document.createElement('canvas');
-    c.width = 1600;
-    c.height = 500;
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#111827';
-    ctx.textBaseline = 'alphabetic';
-    const text = profile.name || 'Signature';
-    let size = 260;
-    ctx.font = `400 ${size}px "${font.family}"`;
-    while (ctx.measureText(text).width > 1520 && size > 40) {
-      size -= 10;
-      ctx.font = `400 ${size}px "${font.family}"`;
-    }
-    ctx.fillText(text, 24, 330);
-    canvas = trimCanvas(c) || c;
-    }
-  }
-
-  const entry = { url: canvas.toDataURL('image/png'), w: canvas.width, h: canvas.height };
-  if (!noCache) sigImgCache[key] = entry;
-  return entry;
-}
-
-// Bloc de signature construit depuis la fiche du signataire :
-//   la signature elle-même (dessin ou nom en écriture manuscrite générée)
-//   puis les lignes définies sur le profil, en nombre libre —
-//   manuscrite (IA), mention (italique) ou texte, {date} remplacé par
-//   la date du jour en toutes lettres.
-// Taille (échelle), couleur et police des textes réglables par signataire.
+// Bloc de signature construit depuis la fiche du signataire : uniquement
+// les lignes définies sur le profil, en nombre libre — manuscrite (IA,
+// réglages propres à la ligne), dessin, mention (italique) ou texte.
+// {date} est remplacé par la date du jour en toutes lettres ; taille,
+// couleur et police des textes réglables par signataire.
 function sigBlockKey(profile) {
-  const hand = profileHand(profile);
   const style = profileTextStyle(profile);
-  return [profile.id, profile.name, profile.styleType, profile.font,
-    profile.drawData ? profile.drawData.length : 0,
-    hand.seed, hand.style, hand.bias, hand.width, hand.variant,
+  const lines = ensureProfileLines(profile).map((l) => [
+    l.style, l.text, l.drawData ? l.drawData.length : 0,
+    JSON.stringify(l.hand || null),
+  ].join('~'));
+  return [profile.id, profile.font,
     style.scale, style.color, style.font,
     todayISO(), // les lignes peuvent contenir {date}
-    JSON.stringify(profile.lines || [])].join('|');
+    lines.join('|')].join('|');
 }
 
-async function buildSigBlock(profile, opts) {
+async function buildSigBlock(profile) {
   if (!profile) return null;
-  const noCache = !!(opts && opts.noCache);
   const lines = ensureProfileLines(profile);
   const dateStr = todayISO();
   const style = profileTextStyle(profile);
@@ -798,31 +777,32 @@ async function buildSigBlock(profile, opts) {
   };
 
   // ligne en écriture manuscrite générée ; police manuscrite en secours
-  const synthLineItem = async (text, salt, base) => {
-    const img = await getSynthLineImg(profile, text, color, salt);
+  const synthLineItem = async (line, text, base) => {
+    const img = await synthLineImg(line, text, color);
     if (img) return imgItem(await wrapImg(img), maxTextW, Math.round(82 * s));
     return textItem(String(text), '400', base, { script: true });
   };
 
-  // 1. la signature : dessin enregistré ou nom en écriture manuscrite
-  //    générée (IA), police manuscrite en secours
-  const sig = await getSigSignatureImg(profile, { noCache });
-  if (sig) items.push(imgItem(await wrapImg(sig), 440, Math.round(150 * s)));
-  else if (profile.name) items.push(textItem(profile.name, '400', 34, { script: true }));
-
-  // 2. les lignes de la fiche (facultatives, en nombre libre) ; chaque
-  //    retour à la ligne dans un texte crée une ligne de bloc supplémentaire
-  let lineNo = 0;
+  // les lignes de la fiche (facultatives, en nombre libre) ; chaque
+  // retour à la ligne dans un texte crée une ligne de bloc supplémentaire
   for (const line of lines) {
+    if (line.style === 'draw') {
+      // dessin enregistré dans la ligne
+      if (line.drawData) {
+        try {
+          const img = await loadImage(line.drawData);
+          items.push(imgItem({ el: img, w: img.naturalWidth, h: img.naturalHeight }, 440, Math.round(150 * s)));
+        } catch (e) { /* dessin illisible : ligne ignorée */ }
+      }
+      continue;
+    }
     const raw = String(line.text || '').replace(/\{date\}/gi, formatDateLong(dateStr));
     for (const sub of raw.split('\n')) {
       const text = sub.trim();
       if (!text) continue;
-      const salt = 100 + lineNo;
       if (line.style === 'mention') items.push(textItem(text, 'italic 600', 27));
       else if (line.style === 'print') items.push(textItem(text, '400', 26));
-      else items.push(await synthLineItem(text, salt, 30));
-      lineNo += 1;
+      else items.push(await synthLineItem(line, text, 30));
     }
   }
 
@@ -1207,7 +1187,7 @@ function updateSignButtonState() {
   } else if (missing.length) {
     const names = missing.map((id) => {
       const p = (state.signatureProfiles || []).find((x) => x.id === id);
-      return p ? p.name : '?';
+      return p ? displayName(p) : '?';
     });
     msg = `Placez la signature de : ${names.join(', ')} — cliquez sur le document.`;
   } else {
@@ -1283,7 +1263,7 @@ async function doSignDocument() {
       signers: [...pagesBySigner.entries()].map(([profileId, pages]) => {
         const pr = (state.signatureProfiles || []).find((x) => x.id === profileId) || {};
         return {
-          name: pr.name || '?',
+          name: displayName(pr),
           role: pr.role || '',
           page: pages[0],
           pages: pages.slice().sort((a, b) => a - b),
@@ -1311,15 +1291,9 @@ async function doSignDocument() {
 // ---------- profils de signataires ----------
 
 let editingProfileId = null;
-let spSelectedFont = SIG_FONTS[0].family;
-let spDrawing = false;
-let spDrewSomething = false;
-let spHandSeed = 0;     // graine « main » en cours d'édition
-let spVariant = 0;      // variante d'écriture en cours d'édition
-let spPreviewToken = 0; // annule les aperçus IA obsolètes
-let spPreviewTimer = null;
-let spLines = [];       // lignes du bloc en cours d'édition
-let spTextStyle = null; // style des textes en cours d'édition
+let spSelectedFont = SIG_FONTS[0].family; // police manuscrite de secours
+let spLines = [];        // lignes du bloc en cours d'édition
+let spTextStyle = null;  // style des textes en cours d'édition
 let spBlockTimer = null; // débounce de l'aperçu du bloc complet
 
 function renderProfiles() {
@@ -1336,16 +1310,14 @@ function renderSignersList() {
     container.innerHTML = '<p class="empty-state">Aucun signataire. Créez un profil pour signer vos documents.</p>';
     return;
   }
-  container.innerHTML = profiles.map((p) => `
+  container.innerHTML = profiles.map((p) => {
+    const n = ensureProfileLines(p).length;
+    return `
     <div class="profile-item">
       <div class="profile-sig-preview" data-sp-preview="${p.id}"></div>
       <div class="profile-item-info">
-        <div class="profile-item-name">${escapeHTML(p.name)}</div>
-        <div class="profile-item-details">
-          ${p.role ? escapeHTML(p.role) + ' · ' : ''}
-          ${p.styleType === 'draw' ? 'Signature dessinée' : 'Écriture manuscrite générée (IA)'}
-          ${ensureProfileLines(p).length ? ' · ' + ensureProfileLines(p).length + ' ligne' + (ensureProfileLines(p).length > 1 ? 's' : '') : ''}
-        </div>
+        <div class="profile-item-name">${escapeHTML(displayName(p))}</div>
+        <div class="profile-item-details">${n} ligne${n > 1 ? 's' : ''}</div>
       </div>
       <div class="profile-item-actions">
         <button class="btn btn-ghost" onclick="openSigProfileModal('${p.id}')" title="Modifier">
@@ -1355,18 +1327,20 @@ function renderSignersList() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
         </button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   hydrateSigPreviews(container);
 }
 
+// aperçu de la fiche : le bloc complet (toutes les lignes)
 async function hydrateSigPreviews(container) {
   const nodes = container.querySelectorAll('[data-sp-preview]');
   for (const node of nodes) {
     const profile = (state.signatureProfiles || []).find((p) => p.id === node.dataset.spPreview);
     if (!profile) continue;
     try {
-      const sig = await getSigSignatureImg(profile);
-      if (sig) node.innerHTML = `<img src="${sig.url}" alt="signature">`;
+      const block = await buildSigBlock(profile);
+      if (block) node.innerHTML = `<img src="${block.dataUrl}" alt="bloc de signature">`;
     } catch (e) { /* aperçu non bloquant */ }
   }
 }
@@ -1394,49 +1368,29 @@ function openSigProfileModal(profileId) {
   editingProfileId = profileId || null;
   const modal = document.getElementById('sigprofile-modal');
   const title = document.getElementById('sp-title');
-  const nameEl = document.getElementById('sp-name');
-  const roleEl = document.getElementById('sp-role');
-  const canvas = document.getElementById('sp-draw-canvas');
-
   const profile = profileId ? (state.signatureProfiles || []).find((p) => p.id === profileId) : null;
+
   title.textContent = profile ? 'Modifier le signataire' : 'Nouveau signataire';
-  nameEl.value = profile ? profile.name : '';
-  roleEl.value = profile ? (profile.role || '') : '';
   spSelectedFont = (profile && profile.font) || SIG_FONTS[0].family;
 
   // lignes du bloc + style des textes : copies de travail pendant l'édition
-  spLines = (profile ? ensureProfileLines(profile) : []).map((l) => ({ ...l }));
+  spLines = (profile ? ensureProfileLines(profile) : [])
+    .map((l) => ({ ...l, hand: l.hand ? { ...l.hand } : undefined }));
+  if (!profile || !spLines.length) {
+    // nouveau signataire : une première ligne manuscrite prête à remplir
+    spLines = [{ id: generateId(), text: '', style: 'script', hand: { style: '-', bias: 0.75, variant: 0 } }];
+  }
   spTextStyle = { ...SIG_TEXT_STYLE_DEFAULTS, ...((profile && profile.textStyle) || {}) };
 
-  // réglages de la « main » (écriture générée) : graine stable par profil,
-  // nouvelle graine pour un nouveau signataire
-  const hand = profileHand(profile || {});
-  spHandSeed = profile ? hand.seed : ((Math.random() * 0x7fffffff) | 0);
-  spVariant = hand.variant;
-  document.getElementById('sp-hand-style').value = hand.style;
-  document.getElementById('sp-hand-bias').value = String(hand.bias);
-
-  const styleType = (profile && profile.styleType) || 'font';
-  document.querySelector('input[name="sp-style"][value="font"]').checked = styleType === 'font';
-  document.querySelector('input[name="sp-style"][value="draw"]').checked = styleType === 'draw';
-
-  resetSpDrawCanvas();
-  if (profile && profile.styleType === 'draw' && profile.drawData) {
-    loadImage(profile.drawData).then((img) => {
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      spDrewSomething = true;
-    }).catch(() => { /* dessin illisible : canvas vierge */ });
-  }
-
   renderSpFontChoices();
-  updateSpPanes();
-  updateSpPreview();
   renderSpLines();
   fillSpTextStyleInputs();
   scheduleSpBlockPreview();
   modal.classList.add('active');
-  setTimeout(() => nameEl.focus(), 50);
+  setTimeout(() => {
+    const first = document.querySelector('#sp-lines textarea[data-spline-text]');
+    if (first) first.focus();
+  }, 50);
 }
 
 function closeSigProfileModal() {
@@ -1445,27 +1399,28 @@ function closeSigProfileModal() {
   clearTimeout(spBlockTimer);
 }
 
-// --- lignes du bloc de signature (fiche signataire, en nombre libre) ---
+// --- lignes du bloc (une signature = des lignes, en nombre libre) ---
 
 function renderSpLines() {
   const box = document.getElementById('sp-lines');
-  if (!spLines.length) {
-    box.innerHTML = '<p class="form-hint" style="margin:0;">Aucune ligne — le bloc ne contiendra que la signature. Ajoutez-en autant que vous voulez (mention, date, fonction…).</p>';
-    return;
-  }
   box.innerHTML = spLines.map((l, i) => `
-    <div class="sig-extra-line sp-line-row">
-      <select data-spline-style="${i}" title="Style de la ligne">
-        ${SIG_LINE_STYLES.map((st) => `<option value="${st.value}"${l.style === st.value ? ' selected' : ''}>${escapeHTML(st.label)}</option>`).join('')}
-      </select>
-      <textarea data-spline-text="${i}" rows="1" placeholder="Texte — ex : Bon pour accord, Fait le {date}…">${escapeHTML(l.text || '')}</textarea>
-      <button type="button" class="btn btn-ghost" data-spline-del="${i}" title="Supprimer cette ligne">×</button>
+    <div class="sp-line" data-spline="${i}">
+      <div class="sig-extra-line sp-line-row">
+        <select data-spline-style="${i}" title="Style de la ligne">
+          ${SIG_LINE_STYLES.map((st) => `<option value="${st.value}"${l.style === st.value ? ' selected' : ''}>${escapeHTML(st.label)}</option>`).join('')}
+        </select>
+        <textarea data-spline-text="${i}" rows="1" ${l.style === 'draw' ? 'hidden' : ''}
+                  placeholder="Texte — ex : Jean Dupont, Bon pour accord, Fait le {date}…">${escapeHTML(l.text || '')}</textarea>
+        <button type="button" class="btn btn-ghost" data-spline-del="${i}" title="Supprimer cette ligne">×</button>
+      </div>
+      <div class="sp-line-opts" data-spline-opts="${i}" ${l.style === 'script' ? '' : 'hidden'}></div>
     </div>`).join('');
 
   box.querySelectorAll('select[data-spline-style]').forEach((sel) => {
     sel.addEventListener('change', () => {
       const line = spLines[parseInt(sel.dataset.splineStyle, 10)];
       if (line) line.style = sel.value;
+      renderSpLines(); // reconstruit les options propres au style
       scheduleSpBlockPreview();
     });
   });
@@ -1483,10 +1438,117 @@ function renderSpLines() {
       scheduleSpBlockPreview();
     });
   });
+
+  // options propres à chaque ligne (manuscrite : la « main » / dessin : zone)
+  spLines.forEach((l, i) => {
+    if (l.style === 'script') renderSpLineHand(i);
+    else if (l.style === 'draw') renderSpLineDraw(i);
+  });
+}
+
+// réglages de la « main » d'une ligne manuscrite : style, lisibilité,
+// variante — chaque ligne est paramétrable indépendamment.
+function renderSpLineHand(i) {
+  const opts = document.querySelector(`#sp-lines [data-spline-opts="${i}"]`);
+  if (!opts) return;
+  const h = lineHand(spLines[i]);
+  opts.innerHTML = `
+    <span class="sp-line-opt">Style
+      <select data-spline-hstyle="${i}">
+        <option value="-"${h.style === '-' ? ' selected' : ''}>Aléatoire</option>
+        ${[...Array(10).keys()].map((n) =>
+          `<option value="${n}"${h.style === String(n) ? ' selected' : ''}>Style ${n + 1}</option>`).join('')}
+      </select>
+    </span>
+    <span class="sp-line-opt">Lisibilité
+      <input type="range" min="0.15" max="2.5" step="0.05" value="${h.bias}" data-spline-hbias="${i}">
+    </span>
+    <button type="button" class="btn btn-outline btn-sm" data-spline-hvar="${i}">Nouvelle variante</button>`;
+
+  opts.querySelector('select[data-spline-hstyle]').addEventListener('change', (e) => {
+    spLines[i].hand = { ...lineHand(spLines[i]), style: e.target.value };
+    scheduleSpBlockPreview();
+  });
+  opts.querySelector('input[data-spline-hbias]').addEventListener('input', (e) => {
+    spLines[i].hand = { ...lineHand(spLines[i]), bias: parseFloat(e.target.value) || 0.75 };
+    scheduleSpBlockPreview();
+  });
+  opts.querySelector('button[data-spline-hvar]').addEventListener('click', () => {
+    spLines[i].hand = { ...lineHand(spLines[i]), variant: (lineHand(spLines[i]).variant || 0) + 1 };
+    scheduleSpBlockPreview();
+  });
+}
+
+// zone de dessin d'une ligne « Dessin à la main »
+function renderSpLineDraw(i) {
+  const opts = document.querySelector(`#sp-lines [data-spline-opts="${i}"]`);
+  if (!opts) return;
+  opts.innerHTML = `
+    <canvas class="sp-line-canvas" data-spline-canvas="${i}" width="1000" height="360"></canvas>
+    <button type="button" class="btn btn-outline btn-sm" data-spline-clear="${i}">Effacer</button>`;
+
+  const canvas = opts.querySelector('canvas[data-spline-canvas]');
+  const line = spLines[i];
+  if (line.drawData) {
+    loadImage(line.drawData).then((img) => {
+      if (canvas.dataset.init) return;
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      line._drew = true;
+    }).catch(() => { /* dessin illisible : zone vierge */ });
+  }
+  initSpLineCanvas(canvas, line);
+
+  opts.querySelector('button[data-spline-clear]').addEventListener('click', () => {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    line._drew = false;
+    line.drawData = null;
+    scheduleSpBlockPreview();
+  });
+}
+
+function initSpLineCanvas(canvas, line) {
+  if (canvas.dataset.init) return;
+  canvas.dataset.init = '1';
+  const ctx = canvas.getContext('2d');
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#0f172a';
+  let drawing = false;
+
+  const pos = (ev) => {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (ev.clientX - rect.left) * (canvas.width / rect.width),
+      y: (ev.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  };
+  canvas.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    canvas.setPointerCapture(ev.pointerId);
+    drawing = true;
+    line._drew = true;
+    const pnt = pos(ev);
+    ctx.beginPath();
+    ctx.moveTo(pnt.x, pnt.y);
+  });
+  canvas.addEventListener('pointermove', (ev) => {
+    if (!drawing) return;
+    const pnt = pos(ev);
+    ctx.lineTo(pnt.x, pnt.y);
+    ctx.stroke();
+  });
+  const stop = () => {
+    drawing = false;
+    scheduleSpBlockPreview();
+  };
+  canvas.addEventListener('pointerup', stop);
+  canvas.addEventListener('pointercancel', stop);
 }
 
 function addSpLine() {
-  spLines.push({ id: generateId(), text: '', style: 'script' });
+  spLines.push({ id: generateId(), text: '', style: 'script', hand: { style: '-', bias: 0.75, variant: 0 } });
   renderSpLines();
   const fields = document.querySelectorAll('#sp-lines textarea[data-spline-text]');
   const last = fields[fields.length - 1];
@@ -1507,23 +1569,21 @@ function fillSpTextStyleInputs() {
   if (font) font.value = spTextStyle.font;
 }
 
-// Profil fictaire reflétant l'état courant de la modale (aperçu du bloc)
+// Profil fictif reflétant l'état courant de la modale (aperçu du bloc)
 function spPseudoProfile() {
-  const styleType = document.querySelector('input[name="sp-style"]:checked').value;
   return {
     id: editingProfileId || 'apercu',
-    name: document.getElementById('sp-name').value.trim() || 'Prénom Nom',
-    styleType,
     font: spSelectedFont,
-    drawData: styleType === 'draw' && spDrewSomething
-      ? document.getElementById('sp-draw-canvas').toDataURL('image/png')
-      : null,
-    handSeed: spHandSeed,
-    handStyle: document.getElementById('sp-hand-style').value,
-    handBias: parseFloat(document.getElementById('sp-hand-bias').value) || 0.75,
-    handVariant: spVariant,
     textStyle: { ...spTextStyle },
-    lines: spLines.map((l) => ({ ...l })),
+    lines: spLines.map((l) => {
+      const out = { id: l.id, text: l.text, style: l.style, hand: l.hand ? { ...l.hand } : undefined };
+      if (l.style === 'draw') {
+        const canvas = document.querySelector(
+          `#sp-lines canvas[data-spline-canvas="${spLines.indexOf(l)}"]`);
+        out.drawData = (l._drew && canvas) ? canvas.toDataURL('image/png') : (l.drawData || null);
+      }
+      return out;
+    }),
   };
 }
 
@@ -1538,7 +1598,7 @@ async function updateSpBlockPreview() {
   if (!box || !spTextStyle) return;
   box.innerHTML = '<span class="sp-preview-loading">Génération de l\'aperçu…</span>';
   try {
-    const block = await buildSigBlock(spPseudoProfile(), { noCache: true });
+    const block = await buildSigBlock(spPseudoProfile());
     if (!block) return;
     box.innerHTML = '';
     const img = document.createElement('img');
@@ -1551,6 +1611,7 @@ async function updateSpBlockPreview() {
   }
 }
 
+// police manuscrite de secours (si le moteur IA est indisponible)
 function renderSpFontChoices() {
   const box = document.getElementById('sp-font-choices');
   box.innerHTML = SIG_FONTS.map((f) => `
@@ -1562,182 +1623,73 @@ function renderSpFontChoices() {
     btn.addEventListener('click', () => {
       spSelectedFont = btn.dataset.font;
       renderSpFontChoices();
-      updateSpPreview();
       scheduleSpBlockPreview();
     });
   });
 }
 
-function updateSpPanes() {
-  const styleType = document.querySelector('input[name="sp-style"]:checked').value;
-  document.getElementById('sp-font-pane').hidden = styleType !== 'font';
-  document.getElementById('sp-draw-pane').hidden = styleType !== 'draw';
-}
-
-function updateSpPreview() {
-  const preview = document.getElementById('sp-name-preview');
-  const name = document.getElementById('sp-name').value.trim() || 'Prénom Nom';
-  const font = SIG_FONTS.find((f) => f.family === spSelectedFont) || SIG_FONTS[0];
-
-  // aperçu simple si le moteur IA est indisponible
-  const fallback = () => {
-    preview.innerHTML = '';
-    const span = document.createElement('span');
-    span.textContent = name;
-    span.style.fontFamily = `'${font.family}', cursive`;
-    preview.appendChild(span);
-  };
-
-  // écriture manuscrite générée à partir du nom (moteur calligrapher.ai)
-  const token = ++spPreviewToken;
-  preview.innerHTML = '<span class="sp-preview-loading">Génération de l\'écriture manuscrite…</span>';
-  const pseudo = {
-    id: editingProfileId || 'apercu',
-    name,
-    handSeed: spHandSeed,
-    handStyle: document.getElementById('sp-hand-style').value,
-    handBias: parseFloat(document.getElementById('sp-hand-bias').value) || 0.75,
-    handVariant: spVariant,
-  };
-  HandwritingSynth.generate(name, {
-    style: pseudo.handStyle,
-    bias: pseudo.handBias,
-    width: 1.2,
-    seed: handSeedFor(pseudo, name, 0),
-    ink: '#111827',
-  }).then((img) => {
-    if (token !== spPreviewToken) return; // aperçu remplacé entre-temps
-    preview.innerHTML = '';
-    const el = document.createElement('img');
-    el.src = img.url;
-    el.alt = 'aperçu de la signature manuscrite';
-    preview.appendChild(el);
-  }).catch(() => {
-    if (token !== spPreviewToken) return;
-    fallback();
-  });
-}
-
-// la génération d'écriture prend ~1 s : on débounce la saisie
-function scheduleSpPreview() {
-  clearTimeout(spPreviewTimer);
-  spPreviewTimer = setTimeout(updateSpPreview, 350);
-}
-
-function resetSpDrawCanvas() {
-  const canvas = document.getElementById('sp-draw-canvas');
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  spDrewSomething = false;
-}
-
-function spCanvasInit() {
-  const canvas = document.getElementById('sp-draw-canvas');
-  canvas.width = 1000;
-  canvas.height = 360;
-  const ctx = canvas.getContext('2d');
-  ctx.lineWidth = 7;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#0f172a';
-
-  const pos = (ev) => {
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: (ev.clientX - rect.left) * (canvas.width / rect.width),
-      y: (ev.clientY - rect.top) * (canvas.height / rect.height),
-    };
-  };
-  canvas.addEventListener('pointerdown', (ev) => {
-    ev.preventDefault();
-    canvas.setPointerCapture(ev.pointerId);
-    spDrawing = true;
-    spDrewSomething = true;
-    const p = pos(ev);
-    ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-  });
-  canvas.addEventListener('pointermove', (ev) => {
-    if (!spDrawing) return;
-    const p = pos(ev);
-    ctx.lineTo(p.x, p.y);
-    ctx.stroke();
-  });
-  const stop = () => {
-    spDrawing = false;
-    scheduleSpBlockPreview(); // le dessin a changé : aperçu du bloc à rafraîchir
-  };
-  canvas.addEventListener('pointerup', stop);
-  canvas.addEventListener('pointercancel', stop);
-}
-
 function submitSigProfile(e) {
   e.preventDefault();
-  const name = document.getElementById('sp-name').value.trim();
-  const role = document.getElementById('sp-role').value.trim();
-  const styleType = document.querySelector('input[name="sp-style"]:checked').value;
 
-  let drawData = null;
-  if (styleType === 'draw') {
-    const canvas = document.getElementById('sp-draw-canvas');
-    const trimmed = spDrewSomething ? trimCanvas(canvas) : null;
-    if (!trimmed) {
-      showToast('Dessinez votre signature dans la zone prévue', 'error');
-      return;
+  // fige les dessins en cours dans leurs lignes
+  spLines.forEach((l, i) => {
+    if (l.style === 'draw') {
+      const canvas = document.querySelector(`#sp-lines canvas[data-spline-canvas="${i}"]`);
+      if (l._drew && canvas) {
+        const trimmed = trimCanvas(canvas);
+        l.drawData = trimmed ? trimmed.toDataURL('image/png') : canvas.toDataURL('image/png');
+      } else if (!l._drew) {
+        l.drawData = null;
+      }
+      delete l._drew;
     }
-    drawData = trimmed.toDataURL('image/png');
+  });
+
+  const hasContent = spLines.some((l) =>
+    (l.style === 'draw' && l.drawData) || ((l.text || '').trim()));
+  if (!hasContent) {
+    showToast('Ajoutez au moins une ligne (texte ou dessin)', 'error');
+    return;
   }
+
+  const cleanLines = spLines.map((l) => {
+    const out = { id: l.id, text: (l.text || '').trim(), style: l.style };
+    if (l.hand) out.hand = { ...l.hand };
+    if (l.style === 'draw' && l.drawData) out.drawData = l.drawData;
+    return out;
+  });
+  const pseudo = { id: editingProfileId || 'nouveau', font: spSelectedFont, lines: cleanLines };
+  const name = displayName(pseudo);
 
   const existing = editingProfileId
     ? (state.signatureProfiles || []).find((p) => p.id === editingProfileId)
     : null;
 
-  // réglages de la « main » (écriture générée par IA)
-  const handStyle = document.getElementById('sp-hand-style').value;
-  const handBias = parseFloat(document.getElementById('sp-hand-bias').value) || 0.75;
-
   if (existing) {
     existing.name = name;
-    existing.role = role;
-    existing.styleType = styleType;
-    existing.font = styleType === 'font' ? spSelectedFont : null;
-    existing.drawData = drawData;
-    existing.handSeed = spHandSeed;
-    existing.handStyle = handStyle;
-    existing.handBias = handBias;
-    existing.handVariant = spVariant;
-    existing.lines = spLines.map((l) => ({ ...l }));
+    existing.font = spSelectedFont;
+    existing.lines = cleanLines;
     existing.textStyle = { ...spTextStyle };
+    delete existing.styleType;
+    delete existing.drawData;
     showToast('Signataire mis à jour');
   } else {
     state.signatureProfiles.push({
       id: generateId(),
       name,
-      role,
-      styleType,
-      font: styleType === 'font' ? spSelectedFont : null,
-      drawData,
-      handSeed: spHandSeed,
-      handStyle,
-      handBias,
-      handVariant: spVariant,
-      lines: spLines.map((l) => ({ ...l })),
+      font: spSelectedFont,
+      lines: cleanLines,
       textStyle: { ...spTextStyle },
+      nameMerged: true, // pas de nom implicite à fusionner : lignes telles quelles
     });
     showToast('Signataire enregistré');
   }
 
   saveState();
-  // invalide les images de signature en cache pour ce profil modifié
-  if (existing) {
-    Object.keys(sigImgCache)
-      .filter((k) => k.startsWith(existing.id + '|'))
-      .forEach((k) => { delete sigImgCache[k]; });
-  }
   closeSigProfileModal();
   renderSignersList();
   if (sigWizard) {
-    // rafraîchit les puces (et invalide les caches d'images du profil modifié)
+    // rafraîchit les puces et les blocs du profil modifié
     renderWizardSigners();
     if (sigWizard.placementMode === 'auto') {
       applyAutoPlacements();
@@ -1847,32 +1799,12 @@ function initSignatures() {
     resetSignatureWizard();
   });
 
-  // Profils : signataires
+  // Profils : signataires — le bloc est une liste de lignes, chacune
+  // réglable séparément (manuscrite IA, dessin, mention, texte)
   $('btn-new-signer').addEventListener('click', () => openSigProfileModal(null));
   $('sp-close').addEventListener('click', closeSigProfileModal);
   document.querySelector('#sigprofile-modal .modal-overlay').addEventListener('click', closeSigProfileModal);
   $('sp-form').addEventListener('submit', submitSigProfile);
-  $('sp-name').addEventListener('input', () => { scheduleSpPreview(); scheduleSpBlockPreview(); });
-  document.querySelectorAll('input[name="sp-style"]').forEach((radio) => {
-    radio.addEventListener('change', () => {
-      updateSpPanes();
-      updateSpPreview();
-      scheduleSpBlockPreview();
-    });
-  });
-  $('btn-sp-clear').addEventListener('click', () => {
-    resetSpDrawCanvas();
-    scheduleSpBlockPreview();
-  });
-  // écriture générée : style, lisibilité, nouvelle variante
-  $('sp-hand-style').addEventListener('change', () => { updateSpPreview(); scheduleSpBlockPreview(); });
-  $('sp-hand-bias').addEventListener('input', () => { scheduleSpPreview(); scheduleSpBlockPreview(); });
-  $('btn-sp-variant').addEventListener('click', () => {
-    spVariant += 1;
-    updateSpPreview();
-    scheduleSpBlockPreview();
-  });
-  // lignes du bloc (facultatives, en nombre libre)
   $('btn-sp-add-line').addEventListener('click', addSpLine);
   // style des textes du bloc
   $('sp-text-scale').addEventListener('input', (e) => {
@@ -1888,7 +1820,6 @@ function initSignatures() {
     spTextStyle.font = e.target.value;
     scheduleSpBlockPreview();
   });
-  spCanvasInit();
 
   // Les entreprises (modale, CRUD) sont gérées par js/companies.js
   // (page Entreprises partagée avec l'éditeur et la signature).

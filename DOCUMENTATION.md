@@ -161,28 +161,27 @@ en base (table `signed_docs`, 10 Mo max).
 
 ### Signataires (page /signataires)
 
-Chaque signataire possède une fiche complète :
+Un signataire est simplement une **liste de lignes** — « + Ajouter une
+ligne » autant que nécessaire, la 1ʳᵉ ligne manuscrite servant de
+signature. Chaque ligne est réglable séparément :
 
-- **nom** et fonction ;
-- le type de signature : **dessin** à la main, ou **nom en écriture
-  manuscrite générée par IA** à partir du texte (réseau de neurones
-  LSTM du modèle calligrapher.ai, auto-hébergé dans
-  `vendor/handwriting/`, ~2,6 Mo chargés une fois) ;
-- sa « main » : graine stable, style (10 styles + aléatoire),
-  lisibilité et **nouvelle variante**. Accents gérés (translittérés),
-  traits identiques à graine identique. Si le moteur est indisponible,
-  repli automatique sur les polices manuscrites (Caveat…) ;
-- des **lignes de bloc facultatives, en nombre libre** : chacune est
-  un texte au choix **manuscrit** (généré par IA), en **mention**
-  (italique) ou en **texte** simple ; `{date}` y est remplacé par la
-  date du jour en toutes lettres, et un retour à la ligne dans un
-  texte crée une ligne de bloc supplémentaire ;
-- le style des textes : taille (70–180 %), couleur et police.
+- **Manuscrite (IA)** : texte écrit par le réseau de neurones (modèle
+  calligrapher.ai auto-hébergé dans `vendor/handwriting/`, ~2,6 Mo
+  chargés une fois), avec sa propre « main » — style (10 + aléatoire),
+  lisibilité et **nouvelle variante**, indépendants d'une ligne à
+  l'autre. Accents gérés (translittérés) ; repli sur police manuscrite
+  si le moteur est indisponible ;
+- **Dessin à la main** : zone de dessin à la souris ou au doigt ;
+- **Mention** (italique) ou **Texte** : simples lignes imprimées.
 
-La fiche affiche un **aperçu du bloc complet** (signature + lignes)
-en direct. Les signataires créés avant cette version retrouvent
-automatiquement le contenu par défaut de l'ancien assistant
-(mention, date, fonction).
+`{date}` est remplacé par la date du jour en toutes lettres ; un retour
+à la ligne dans un texte crée une ligne de bloc supplémentaire. Le
+style des textes (taille 70–180 %, couleur, police, police manuscrite
+de secours) est commun au bloc, avec **aperçu du bloc complet en
+direct**. Le libellé du signataire (liste, puces de l'assistant) est
+le texte de sa première ligne. Les signataires créés avant cette
+version sont migrés automatiquement (le nom devient la 1ʳᵉ ligne
+manuscrite, le dessin une ligne dessin, puis mention/date/fonction).
 
 ---
 

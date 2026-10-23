@@ -12,7 +12,7 @@ Générateur de factures et devis professionnel, gratuit et open-source. Fonctio
 - **Cahier des charges** — Markdown optionnel avec 3 emplacements au choix : intégré à la facture, en annexe sur une page séparée du même PDF, ou dans un second PDF téléchargé à part
 - **Paiement en 3 fois** — activable/désactivable par document, échéancier mensuel automatique (montants + dates)
 - **Gestion clients** — Enregistrement et réutilisation des fiches clients
-- **Signature de documents** — Upload d'un PDF, renommage du fichier signé, placement visuel des signatures : **commune à toutes les pages** (automatique, précis ou manuel) ou **autonome** sur certaines pages (blocs indépendants, plusieurs signatures différentes possibles). Profils réutilisables (écriture manuscrite **générée par IA** à partir du texte, ou dessin) avec **lignes de bloc facultatives en nombre libre** (manuscrites, mention ou texte, jeton `{date}`), liste des documents signés avec re-téléchargement
+- **Signature de documents** — Upload d'un PDF, renommage du fichier signé, placement visuel des signatures : **commune à toutes les pages** (automatique, précis ou manuel) ou **autonome** sur certaines pages (blocs indépendants, plusieurs signatures différentes possibles). Signataires réutilisables définis comme des **listes de lignes en nombre libre** — manuscrites **générées par IA** (paramétrables ligne par ligne), dessin, mention ou texte, jeton `{date}` — et liste des documents signés avec re-téléchargement
 - **PDF professionnel** — Génération et téléchargement de PDF conformes aux normes françaises
 - **Historique** — Recherche, filtrage, statut (brouillon/envoyée/payée), duplication
 - **Entreprises** — Une fiche par entité émettrice (adresse, SIRET, TVA, logo, banque, mentions légales, préfixes de numérotation)
@@ -111,22 +111,22 @@ modes de placement :
 Chaque bloc reste ajustable (glisser, redimensionner, supprimer). Le
 PDF signé est téléchargé sous le nom choisi et archivé dans la liste.
 
-La page **Signataires** gère les fiches : nom, fonction, type de
-signature (dessin, ou nom en écriture manuscrite générée), « main »
-(graine, style, lisibilité, variante) et **lignes de bloc
-facultatives en nombre libre** — chacune manuscrite (IA), en mention
-(italique) ou en texte, `{date}` étant remplacé par la date du jour
-en toutes lettres. La fiche affiche un aperçu du bloc complet en
-direct.
+La page **Signataires** gère les fiches : un signataire est une
+**liste de lignes** (« + Ajouter une ligne », autant que nécessaire).
+Chaque ligne est réglable séparément : **manuscrite (IA)** avec sa
+propre « main » (style, lisibilité, nouvelle variante), **dessin à la
+main**, **mention** (italique) ou **texte** ; `{date}` est remplacé
+par la date du jour en toutes lettres. La fiche affiche un aperçu du
+bloc complet en direct, et le libellé du signataire est le texte de
+sa première ligne.
 
-Chaque signataire possède sa « main » : un réseau de neurones
-(LSTM + attention, modèle de calligrapher.ai auto-hébergé) génère des
-traits d'écriture réalistes à partir du texte — nom ou lignes du
-bloc. La graine par signataire est stable (la même
-personne écrit toujours de la même façon), le bouton **Nouvelle
+Un réseau de neurones (LSTM + attention, modèle de calligrapher.ai
+auto-hébergé) génère des traits d'écriture réalistes à partir du
+texte de chaque ligne manuscrite. Les graines sont stables (la même
+ligne redonne toujours les mêmes traits), le bouton **Nouvelle
 variante** explore d'autres façons d'écrire, et le style/lisibilité
-sont réglables. Si le moteur est indisponible, l'app retombe sur les
-polices manuscrites.
+sont réglables par ligne. Si le moteur est indisponible, l'app
+retombe sur les polices manuscrites.
 
 En mode local, les PDF signés vivent dans le `localStorage` (clé
 dédiée, quota du navigateur). En mode serveur, ils sont stockés en

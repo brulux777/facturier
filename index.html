@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Caveat:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Parisienne&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20">
+  <link rel="stylesheet" href="style.css?v=21">
 </head>
 <body>
   <div id="app">
@@ -392,7 +392,7 @@
           </div>
           <div class="card-body">
             <div id="sig-signers-chips" class="sig-chips"></div>
-            <small class="form-hint">Cliquez pour sélectionner un signataire (un 2ᵉ clic le retire). Le contenu de chaque bloc (mention, date, lignes…) se règle sur sa fiche, page Signataires.</small>
+            <small class="form-hint">Cliquez sur un signataire pour le sélectionner (2ᵉ clic : le rendre actif), sur × pour le retirer. Le contenu de chaque bloc (mention, date, lignes…) se règle sur sa fiche, page Signataires.</small>
           </div>
         </div>
 
@@ -616,78 +616,11 @@
       </div>
       <div class="modal-body">
         <form id="sp-form" autocomplete="off">
-          <div class="form-row cols-2">
-            <div class="form-group">
-              <label for="sp-name">Nom complet</label>
-              <input type="text" id="sp-name" required placeholder="Jean Dupont">
-            </div>
-            <div class="form-group">
-              <label for="sp-role">Fonction (optionnel)</label>
-              <input type="text" id="sp-role" placeholder="Gérant, Directeur technique…">
-            </div>
-          </div>
           <div class="form-group">
-            <label>Type de signature</label>
-            <div class="radio-row">
-              <label class="radio-pill">
-                <input type="radio" name="sp-style" value="font" checked>
-                <span>Nom en écriture manuscrite (IA)</span>
-              </label>
-              <label class="radio-pill">
-                <input type="radio" name="sp-style" value="draw">
-                <span>Dessin à la main</span>
-              </label>
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="sp-hand-style">Écriture manuscrite générée (IA) — utilisée pour le nom et les lignes du bloc</label>
-            <div class="sp-synth-row">
-              <select id="sp-hand-style">
-                <option value="-">Aléatoire (propre au signataire)</option>
-                <option value="0">Style 1</option>
-                <option value="1">Style 2</option>
-                <option value="2">Style 3</option>
-                <option value="3">Style 4</option>
-                <option value="4">Style 5</option>
-                <option value="5">Style 6</option>
-                <option value="6">Style 7</option>
-                <option value="7">Style 8</option>
-                <option value="8">Style 9</option>
-                <option value="9">Style 10</option>
-              </select>
-              <label class="sp-bias-label">Lisibilité
-                <input type="range" id="sp-hand-bias" min="0.15" max="2.5" step="0.05" value="0.75">
-              </label>
-              <button type="button" id="btn-sp-variant" class="btn btn-outline btn-sm">Nouvelle variante</button>
-            </div>
-            <small class="form-hint">Générée par un réseau de neurones à partir du texte — chaque variante est une nouvelle façon d'écrire.</small>
-          </div>
-          <div id="sp-font-pane">
-            <div class="form-group">
-              <label>Aperçu du nom manuscrit</label>
-              <div id="sp-name-preview" class="sp-preview"></div>
-            </div>
-            <details class="sig-style-details">
-              <summary>Police manuscrite de secours (si l'IA est indisponible)</summary>
-              <div class="form-group" style="margin-top:8px;">
-                <div id="sp-font-choices" class="sp-font-choices"></div>
-              </div>
-            </details>
-          </div>
-          <div id="sp-draw-pane" hidden>
-            <div class="form-group">
-              <label>Dessinez votre signature à la souris ou au doigt</label>
-              <div class="sp-draw-wrap">
-                <canvas id="sp-draw-canvas"></canvas>
-              </div>
-              <button type="button" id="btn-sp-clear" class="btn btn-outline btn-sm" style="margin-top:8px;">Effacer</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Lignes du bloc de signature (facultatives — autant que vous voulez)</label>
+            <label>Lignes du bloc — la 1ʳᵉ ligne manuscrite sert de signature</label>
             <div id="sp-lines" class="sig-extra-lines"></div>
             <button type="button" id="btn-sp-add-line" class="btn-link">+ Ajouter une ligne</button>
-            <small class="form-hint">Chaque ligne apparaît sous la signature, dans le style choisi. « {date} » est remplacé par la date du jour en toutes lettres ; un retour à la ligne dans un texte crée une ligne supplémentaire du bloc.</small>
+            <small class="form-hint">Chaque ligne est réglable séparément : manuscrite (IA — style, lisibilité, variante), mention, texte ou dessin. « {date} » est remplacé par la date du jour ; un retour à la ligne dans un texte crée une ligne de bloc supplémentaire.</small>
           </div>
           <details class="sig-style-details" id="sp-text-style-details">
             <summary>Texte des lignes — taille, couleur, police</summary>
@@ -707,6 +640,10 @@
                 <label for="sp-text-font">Police</label>
                 <select id="sp-text-font"></select>
               </div>
+            </div>
+            <div class="form-group" style="margin-top:8px;">
+              <label class="sig-extra-title">Police manuscrite de secours (si l'IA est indisponible)</label>
+              <div id="sp-font-choices" class="sp-font-choices"></div>
             </div>
           </details>
           <div class="form-group">
@@ -860,7 +797,7 @@
   <script src="js/settings.js?v=18"></script>
   <script src="js/clients.js?v=18"></script>
   <script src="js/handwriting-synth.js?v=1"></script>
-  <script src="js/signatures.js?v=20"></script>
+  <script src="js/signatures.js?v=21"></script>
   <script src="js/editor.js?v=18"></script>
   <script src="js/pdf.js?v=18"></script>
   <script src="js/history.js?v=18"></script>
