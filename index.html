@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Caveat:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Parisienne&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=16">
+  <link rel="stylesheet" href="style.css?v=17">
 </head>
 <body>
   <div id="app">
@@ -420,7 +420,16 @@
           </div>
           <div class="card-body">
             <div id="sig-signers-chips" class="sig-chips"></div>
-            <small class="form-hint">Cliquez pour sélectionner un signataire, puis cliquez sur le document ci-dessous pour placer sa signature. Une puce déjà active se retire d'un nouveau clic ; chaque signataire sélectionné doit être placé.</small>
+            <small class="form-hint">Cliquez pour sélectionner un signataire, puis placez sa signature (automatiquement sur toutes les pages, ou manuellement au clic). Une puce déjà active se retire d'un nouveau clic ; chaque signataire sélectionné doit être placé.</small>
+            <div id="sig-signers-config" class="sig-signers-config"></div>
+            <datalist id="sig-mentions">
+              <option value="Bon pour accord"></option>
+              <option value="Bon pour accord et exécution"></option>
+              <option value="Lu et approuvé"></option>
+              <option value="Certifié sincère et véritable"></option>
+              <option value="Reçu et accepté"></option>
+              <option value="Certifié exact"></option>
+            </datalist>
           </div>
         </div>
 
@@ -428,6 +437,31 @@
         <div class="card">
           <div class="card-header"><h3>4. Placement des signatures</h3></div>
           <div class="card-body">
+            <div class="form-row cols-2">
+              <div class="form-group">
+                <label>Mode de placement</label>
+                <div class="radio-row">
+                  <label class="radio-pill">
+                    <input type="radio" name="sig-place-mode" value="auto" checked>
+                    <span>Automatique — toutes les pages</span>
+                  </label>
+                  <label class="radio-pill">
+                    <input type="radio" name="sig-place-mode" value="manual">
+                    <span>Manuel — clic sur le document</span>
+                  </label>
+                </div>
+              </div>
+              <div class="form-group" id="sig-auto-pos-group">
+                <label for="sig-auto-pos">Position automatique</label>
+                <select id="sig-auto-pos">
+                  <option value="bottom">Bas de page</option>
+                  <option value="top">Haut de page</option>
+                  <option value="left">Bord gauche</option>
+                  <option value="right">Bord droit</option>
+                </select>
+              </div>
+            </div>
+            <small class="form-hint" id="sig-place-hint">En mode automatique, chaque signataire est placé sur toutes les pages à la position choisie. Ajustez ensuite librement : glisser, redimensionner, supprimer (« × »).</small>
             <p class="empty-state" id="sig-pages-empty">Téléversez d'abord un PDF.</p>
             <div id="sig-pages" class="sig-pages"></div>
           </div>
@@ -772,16 +806,16 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="js/state.js?v=16"></script>
-  <script src="js/server-sync.js?v=16"></script>
-  <script src="js/markdown.js?v=16"></script>
-  <script src="js/companies.js?v=16"></script>
-  <script src="js/settings.js?v=16"></script>
-  <script src="js/clients.js?v=16"></script>
-  <script src="js/signatures.js?v=16"></script>
-  <script src="js/editor.js?v=16"></script>
-  <script src="js/pdf.js?v=16"></script>
-  <script src="js/history.js?v=16"></script>
-  <script src="js/app.js?v=16"></script>
+  <script src="js/state.js?v=17"></script>
+  <script src="js/server-sync.js?v=17"></script>
+  <script src="js/markdown.js?v=17"></script>
+  <script src="js/companies.js?v=17"></script>
+  <script src="js/settings.js?v=17"></script>
+  <script src="js/clients.js?v=17"></script>
+  <script src="js/signatures.js?v=17"></script>
+  <script src="js/editor.js?v=17"></script>
+  <script src="js/pdf.js?v=17"></script>
+  <script src="js/history.js?v=17"></script>
+  <script src="js/app.js?v=17"></script>
 </body>
 </html>

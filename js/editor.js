@@ -3,6 +3,11 @@
    ============================================ */
 let currentLineItems = [];
 let editingInvoiceId = null;
+// True si l'utilisateur a changé l'entreprise émettrice pendant l'édition
+// d'un document existant. Sinon, le document conserve la copie des
+// paramètres entreprise figée à l'émission : l'édition d'une facture est
+// indépendante de l'évolution de la fiche client comme de la fiche entreprise.
+let editorCompanySwitched = false;
 
 // --- Invoice Number ---
 
@@ -396,6 +401,7 @@ function updateTotalsDOM(t) {
 
 function resetInvoiceForm() {
   editingInvoiceId = null;
+  editorCompanySwitched = false;
 
   // Entreprise émettrice : par défaut la première (ou celle marquée ★)
   const def = getDefaultCompany();
@@ -441,6 +447,9 @@ function loadInvoiceIntoForm(invoiceId) {
   if (!inv) return;
 
   editingInvoiceId = inv.id;
+  // Édition d'un document existant : il conserve ses paramètres figés
+  // (re-figés seulement si l'utilisateur change d'entreprise émettrice).
+  editorCompanySwitched = false;
 
   // Entreprise émettrice du document (ou détection depuis la copie figée)
   let cid = inv.companyId;
@@ -467,9 +476,10 @@ function loadInvoiceIntoForm(invoiceId) {
   document.getElementById('client-city').value = inv.client.city || '';
   document.getElementById('client-siret').value = inv.client.siret || '';
 
-  if (inv.clientId) {
-    document.getElementById('client-select').value = inv.clientId;
-  }
+  // Le sélecteur client n'est qu'une aide de remplissage : le document
+  // garde sa propre copie client. Toujours le réaligner (et non garder la
+  // sélection du document précédent quand celui-ci n'a pas de client lié).
+  document.getElementById('client-select').value = inv.clientId || '';
 
   document.getElementById('doc-notes').value = inv.notes || '';
   document.getElementById('doc-discount').value = inv.discountPercent || 0;
@@ -516,6 +526,15 @@ function collectInvoiceData() {
   const totals = calculateTotals();
   const companyId = editorCompanyId() || (getDefaultCompany() || {}).id || null;
 
+  // Indépendance vis-à-vis des fiches : un document existant conserve la
+  // copie des paramètres entreprise figée à l'émission, même si la fiche a
+  // évolué depuis. Exception : changement explicite d'émetteur dans
+  // l'éditeur (ou nouveau document) → paramètres re-figés depuis la fiche.
+  const original = editingInvoiceId
+    ? state.invoices.find((i) => i.id === editingInvoiceId)
+    : null;
+  const keepFrozenSettings = !!(original && original.settings && !editorCompanySwitched);
+
   return {
     type,
     number,
@@ -536,7 +555,8 @@ function collectInvoiceData() {
     totals,
     // Copie figée des paramètres EFFECTIFS de l'entreprise émettrice :
     // le PDF reste identique même si l'entreprise est modifiée ensuite.
-    settings: getEffectiveSettings(companyId),
+    // Document existant non changé d'émetteur → copie figée conservée.
+    settings: keepFrozenSettings ? original.settings : getEffectiveSettings(companyId),
   };
 }
 

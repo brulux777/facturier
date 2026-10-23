@@ -47,7 +47,11 @@ mention 293 B), IBAN, mentions légales et **séquence de numérotation
 propre à chaque entreprise** (ex : `CW-2026-001` pour Contrôle Web,
 `F-2026-001` pour ELD Contrôle SAS). Chaque document enregistré fige
 une copie des paramètres de son entreprise émettrice : les PDF déjà
-émis restent identiques même si la fiche évolue ensuite.
+émis restent identiques même si la fiche évolue ensuite. Rééditer un
+document conserve cette copie figée (coordonnées client et entreprise
+du document intouchées) ; seuls un changement explicite d'émetteur
+dans l'éditeur, une duplication ou un nouveau document reprennent la
+fiche actuelle.
 
 À la première ouverture après mise à jour, l'ancienne configuration
 unique (page Paramètres historique) est migrée automatiquement en
@@ -124,13 +128,25 @@ pas une signature électronique qualifiée au sens du règlement eIDAS).
 3. Choisir **l'entreprise signataire** (Contrôle Web ou ELD Contrôle
    SAS, depuis les profils).
 4. Sélectionner les signataires (profils réutilisables : nom rendu en
-   police manuscrite ou dessin enregistré).
-5. Cliquer sur l'aperçu pour placer chaque signature (déplaçable,
-   redimensionnable), puis **Signer le document**.
+   police manuscrite ou dessin enregistré). Chaque signataire peut
+   avoir **sa propre entreprise signataire** (par défaut celle du
+   document) et une **mention** (ex. « Bon pour accord », suggestions
+   proposées, champ libre).
+5. Placer les signatures :
+   - **automatique** : chaque signataire est placé sur **toutes les
+     pages** à la position choisie (bas, haut, bord gauche, bord
+     droit), avec répartition sans chevauchement (côte à côte en
+     bas/haut, empilés à gauche/droite) ;
+   - **manuel** : cliquer sur l'aperçu pour placer ou déplacer une
+     signature (un même signataire peut figurer sur plusieurs pages).
 
-Le bloc signature (image + nom + fonction + entreprise + date) est
-incrusté dans le PDF, téléchargé immédiatement et archivé dans la liste
-« Signature ». En mode serveur, les PDF signés sont stockés en base
+   Dans les deux modes, chaque bloc reste ajustable (glisser,
+   redimensionner, supprimer), puis **Signer le document**.
+
+Le bloc signature (mention + image + nom + fonction + entreprise +
+date) est incrusté dans le PDF, téléchargé immédiatement et archivé
+dans la liste « Signature » (avec mention et entreprise par
+signataire). En mode serveur, les PDF signés sont stockés en base
 (table `signed_docs`, 10 Mo max).
 
 ---

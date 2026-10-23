@@ -1462,6 +1462,64 @@ body.login-page {
   opacity: 0.75;
 }
 
+/* --- assistant : config par signataire (entreprise + mention) --- */
+
+.sig-signers-config {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.sig-signer-config {
+  border: 1.5px solid var(--color-border);
+  border-left: 4px solid var(--sig-c, var(--color-primary));
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: var(--color-surface);
+}
+
+.sig-signer-config-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.sig-signer-config-name small {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.sig-signer-config-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.sig-signer-config-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sig-signer-config-fields select,
+.sig-signer-config-fields input {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+
+@media (max-width: 640px) {
+  .sig-signer-config-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* --- assistant : pages PDF + placement --- */
 
 .sig-pages {

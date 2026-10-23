@@ -207,6 +207,10 @@ function handleEditorCompanyChange() {
     document.getElementById('doc-number').value = generateInvoiceNumber(
       document.getElementById('doc-type').value
     );
+  } else {
+    // Changement d'émetteur explicite sur un document existant : à
+    // l'enregistrement, les paramètres seront re-figés depuis cette fiche.
+    editorCompanySwitched = true;
   }
   // Régime TVA propre à l'entreprise : lignes à 0 si franchise, taux par
   // défaut si l'on quitte une entreprise franchise (sinon taux conservés)

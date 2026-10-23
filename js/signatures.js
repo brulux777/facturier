@@ -219,7 +219,11 @@ async function renderSignaturesList(force) {
       (d.docType || '').toLowerCase().includes(q) ||
       (d.originalName || '').toLowerCase().includes(q) ||
       ((d.company && d.company.name) || '').toLowerCase().includes(q) ||
-      (d.signers || []).some((s) => (s.name || '').toLowerCase().includes(q))
+      (d.signers || []).some((s) =>
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.company || '').toLowerCase().includes(q) ||
+        (s.mention || '').toLowerCase().includes(q)
+      )
     );
   }
 
@@ -230,7 +234,14 @@ async function renderSignaturesList(force) {
 
   container.innerHTML = docs.map((d) => {
     const dateStr = (d.createdAt || '').slice(0, 10) || d.date || '';
-    const signers = (d.signers || []).map((s) => escapeHTML(s.name)).join(', ');
+    const signers = (d.signers || []).map((s) => {
+      const parts = [escapeHTML(s.name || '')];
+      if (s.mention) parts.push('« ' + escapeHTML(s.mention) + ' »');
+      if (s.company && s.company !== ((d.company && d.company.name) || '')) {
+        parts.push(escapeHTML(s.company));
+      }
+      return parts.join(' · ');
+    }).join(', ');
     return `
       <div class="signed-doc-item">
         <div class="signed-doc-icon">
@@ -276,7 +287,10 @@ function newWizardState() {
     date: todayISO(),
     companyId: '',    // '' = entreprise des paramètres
     signers: [],      // ids de profils sélectionnés
+    signerMeta: {},   // profileId -> { companyId: ''|id|'__none__', mention: '' }
     activeSigner: null,
+    placementMode: 'auto',  // 'auto' = toutes les pages | 'manual' = clic
+    autoPosition: 'bottom', // bottom | top | left | right
     placements: [],   // {id, profileId, page, xPct, yPct, wPct}
     blocks: {},       // PNG de bloc par profileId (avec clé d'invalidation)
     busy: false,
@@ -301,6 +315,11 @@ function prepareSignatureWizard() {
   $('sig-pages').innerHTML = '';
   $('sig-pages-empty').style.display = '';
 
+  const autoRadio = document.querySelector('input[name="sig-place-mode"][value="auto"]');
+  if (autoRadio) autoRadio.checked = true;
+  $('sig-auto-pos').value = 'bottom';
+  updateSigPlaceModeUI();
+
   populateWizardCompanies();
   renderWizardSigners();
   updateSignButtonState();
@@ -322,6 +341,7 @@ function populateWizardCompanies() {
   }
   if (sigWizard) sigWizard.companyId = def ? def.id : '';
   select.value = def ? def.id : '';
+  renderSignersConfig(); // le libellé « Entreprise du document » dépend du choix
 }
 
 function currentSigCompanySnapshot() {
@@ -338,6 +358,32 @@ function currentSigCompanySnapshot() {
 function signerColorIdx(profileId) {
   const i = sigWizard ? sigWizard.signers.indexOf(profileId) : -1;
   return i < 0 ? 0 : i;
+}
+
+// Entreprise associée à un signataire : la sienne, sinon celle du document
+function signerCompanySnapshot(profileId) {
+  const meta = (sigWizard && sigWizard.signerMeta[profileId]) || {};
+  if (meta.companyId === '__none__') {
+    return { name: '', siret: '', city: '', address: '', postalCode: '' };
+  }
+  if (meta.companyId) {
+    const c = getCompany(meta.companyId);
+    if (c) {
+      return {
+        name: c.name || '',
+        siret: c.siret || '',
+        city: c.city || '',
+        address: c.address || '',
+        postalCode: c.postalCode || '',
+      };
+    }
+  }
+  return currentSigCompanySnapshot();
+}
+
+function signerMention(profileId) {
+  const meta = (sigWizard && sigWizard.signerMeta[profileId]) || {};
+  return (meta.mention || '').trim();
 }
 
 // --- puces de signataires (sélection + signataire actif) ---
@@ -372,6 +418,78 @@ function renderWizardSigners() {
   box.querySelectorAll('.signer-chip').forEach((chip) => {
     chip.addEventListener('click', () => toggleWizardSigner(chip.dataset.profile));
   });
+
+  renderSignersConfig();
+}
+
+// --- config par signataire : entreprise signataire + mention ---
+
+function renderSignersConfig() {
+  const box = document.getElementById('sig-signers-config');
+  if (!box || !sigWizard) return;
+  if (!sigWizard.signers.length) {
+    box.innerHTML = '';
+    return;
+  }
+
+  const docCompany = currentSigCompanySnapshot();
+  const companies = state.companies || [];
+  box.innerHTML = sigWizard.signers.map((id) => {
+    const p = (state.signatureProfiles || []).find((x) => x.id === id);
+    if (!p) return '';
+    if (!sigWizard.signerMeta[id]) {
+      sigWizard.signerMeta[id] = { companyId: '', mention: 'Bon pour accord' };
+    }
+    const meta = sigWizard.signerMeta[id];
+    const color = SIG_COLORS[signerColorIdx(id) % SIG_COLORS.length];
+    const options = [
+      `<option value="">Entreprise du document${docCompany.name ? ' — ' + escapeHTML(docCompany.name) : ''}</option>`,
+      ...companies
+        .filter((c) => c.id !== (getCompany(sigWizard.companyId) || getDefaultCompany() || {}).id)
+        .map((c) => `<option value="${c.id}"${meta.companyId === c.id ? ' selected' : ''}>${escapeHTML(c.name)}</option>`),
+      `<option value="__none__"${meta.companyId === '__none__' ? ' selected' : ''}>— Aucune entreprise —</option>`,
+    ].join('');
+    return `
+      <div class="sig-signer-config" style="--sig-c: ${color}">
+        <div class="sig-signer-config-name">${escapeHTML(p.name)}${p.role ? ` <small>· ${escapeHTML(p.role)}</small>` : ''}</div>
+        <div class="sig-signer-config-fields">
+          <label>Entreprise signataire
+            <select data-sc-company="${id}">${options}</select>
+          </label>
+          <label>Mention
+            <input type="text" data-sc-mention="${id}" list="sig-mentions"
+                   value="${escapeHTML(meta.mention || '').replace(/"/g, '&quot;')}" placeholder="Ex : Bon pour accord">
+          </label>
+        </div>
+      </div>`;
+  }).join('');
+
+  box.querySelectorAll('select[data-sc-company]').forEach((sel) => {
+    sel.addEventListener('change', async () => {
+      const meta = sigWizard.signerMeta[sel.dataset.scCompany];
+      if (!meta) return;
+      meta.companyId = sel.value;
+      await refreshSigBlocks();
+      renderSigPlacements();
+    });
+  });
+  box.querySelectorAll('input[data-sc-mention]').forEach((inp) => {
+    inp.addEventListener('input', () => {
+      const meta = sigWizard.signerMeta[inp.dataset.scMention];
+      if (!meta) return;
+      meta.mention = inp.value;
+      scheduleSigBlocksRefresh();
+    });
+  });
+}
+
+let sigBlocksRefreshTimer = null;
+function scheduleSigBlocksRefresh() {
+  clearTimeout(sigBlocksRefreshTimer);
+  sigBlocksRefreshTimer = setTimeout(async () => {
+    await refreshSigBlocks();
+    renderSigPlacements();
+  }, 250);
 }
 
 function toggleWizardSigner(profileId) {
@@ -388,9 +506,14 @@ function toggleWizardSigner(profileId) {
     sigWizard.activeSigner = profileId;
   }
   renderWizardSigners();
-  refreshSigBlocks();
-  renderSigPlacements();
-  updateSignButtonState();
+  if (sigWizard.placementMode === 'auto') {
+    applyAutoPlacements(); // reconstruit blocs + placements, puis re rend
+  } else {
+    refreshSigBlocks().then(() => {
+      renderSigPlacements();
+      updateSignButtonState();
+    });
+  }
 }
 
 // --- upload & rendu du PDF (pdf.js) ---
@@ -429,7 +552,12 @@ async function loadSigPdfFile(file) {
     document.getElementById('sig-dropzone').style.display = 'none';
 
     await renderWizardPdfPages();
-    refreshSigBlocks();
+    if (sigWizard.placementMode === 'auto') {
+      await applyAutoPlacements();
+    } else {
+      await refreshSigBlocks();
+      renderSigPlacements();
+    }
     updateSignButtonState();
     showToast('PDF chargé');
   } catch (e) {
@@ -530,13 +658,14 @@ async function getSigSignatureImg(profile) {
   return entry;
 }
 
-// Bloc complet : signature + nom + fonction + entreprise + date
+// Bloc complet : mention + signature + nom + fonction + entreprise + date
 async function buildSigBlockFor(profileId) {
   const profile = (state.signatureProfiles || []).find((p) => p.id === profileId);
   if (!profile) return null;
-  const company = currentSigCompanySnapshot();
+  const company = signerCompanySnapshot(profileId);
+  const mention = signerMention(profileId);
   const dateStr = sigWizard.date || todayISO();
-  const key = [profileId, company.name, company.city, dateStr].join('|');
+  const key = [profileId, company.name, company.city, dateStr, mention].join('|');
   const cached = sigWizard.blocks[profileId];
   if (cached && cached.key === key) return cached;
 
@@ -560,14 +689,24 @@ async function buildSigBlockFor(profileId) {
     { text: placeLine, font: '400 17px Inter', color: '#64748b' },
   ].filter((l) => l.text && l.text.trim());
 
-  try { await document.fonts.load('700 24px Inter'); } catch (e) { /* déjà là */ }
+  try {
+    await document.fonts.load('700 24px Inter');
+    await document.fonts.load('italic 600 21px Inter');
+  } catch (e) { /* déjà là */ }
 
+  const mentionH = mention ? 32 : 0;
   const c = document.createElement('canvas');
   c.width = W;
-  c.height = pad + sigH + 14 + lines.length * lineH + pad;
+  c.height = pad + mentionH + sigH + 14 + lines.length * lineH + pad;
   const ctx = c.getContext('2d');
-  ctx.drawImage(await loadImage(sig.url), pad, pad, sigW, sigH);
-  let y = pad + sigH + 14 + 21;
+  if (mention) {
+    ctx.font = 'italic 600 21px Inter';
+    ctx.fillStyle = '#334155';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(mention, pad, pad + 20);
+  }
+  ctx.drawImage(await loadImage(sig.url), pad, pad + mentionH, sigW, sigH);
+  let y = pad + mentionH + sigH + 14 + 21;
   lines.forEach((l) => {
     ctx.font = l.font;
     ctx.fillStyle = l.color;
@@ -585,6 +724,86 @@ async function refreshSigBlocks() {
   if (!sigWizard) return;
   for (const id of sigWizard.signers) {
     await buildSigBlockFor(id);
+  }
+}
+
+// --- placement automatique (toutes les pages) ---
+
+// Répartit les signataires sur une page selon la position choisie :
+// bas/haut → côte à côte horizontalement ; gauche/droite → empilés verticalement.
+function autoPlacementsForPage(pageIdx) {
+  const n = sigWizard.signers.length;
+  if (!n) return [];
+  const size = sigWizard.pageSizes[pageIdx - 1] || { width: 595.28, height: 841.89 };
+  const ratios = sigWizard.signers.map((id) => {
+    const b = sigWizard.blocks[id];
+    return b ? b.h / b.w : 0.5;
+  });
+  const margin = 0.05; // marge au bord (5 % du côté)
+  const gap = 0.03;    // écart entre deux blocs
+  const pos = sigWizard.autoPosition;
+
+  let wPct = 0.24;
+  if (pos === 'bottom' || pos === 'top') {
+    // largeur maxi pour tout faire tenir sur une ligne
+    wPct = Math.min(wPct, (1 - 2 * margin - (n - 1) * gap) / n);
+  }
+  let hPcts = ratios.map((r) => wPct * (size.width / size.height) * r);
+  if (pos === 'left' || pos === 'right') {
+    const total = hPcts.reduce((a, b) => a + b, 0) + (n - 1) * gap;
+    const maxH = 0.9; // zone utile verticale
+    if (total > maxH) {
+      const s = maxH / total;
+      hPcts = hPcts.map((h) => h * s);
+      wPct *= s; // le bloc garde ses proportions
+    }
+  }
+
+  const edge = 0.045; // décroché du bord sélectionné
+  const out = [];
+  sigWizard.signers.forEach((profileId, i) => {
+    let xPct, yPct;
+    if (pos === 'bottom' || pos === 'top') {
+      const total = n * wPct + (n - 1) * gap;
+      xPct = (1 - total) / 2 + i * (wPct + gap);
+      yPct = pos === 'bottom' ? 1 - edge - hPcts[i] : edge;
+    } else {
+      const total = hPcts.reduce((a, b) => a + b, 0) + (n - 1) * gap;
+      const startY = (1 - total) / 2;
+      xPct = pos === 'left' ? margin : 1 - margin - wPct;
+      yPct = startY + hPcts.slice(0, i).reduce((a, b) => a + b, 0) + i * gap;
+    }
+    out.push({ id: generateId(), profileId, page: pageIdx, xPct, yPct, wPct });
+  });
+  return out;
+}
+
+async function applyAutoPlacements() {
+  if (!sigWizard || sigWizard.placementMode !== 'auto') return;
+  await refreshSigBlocks();
+  if (!sigWizard.pdfjsDoc) {
+    sigWizard.placements = [];
+  } else {
+    const all = [];
+    for (let pg = 1; pg <= sigWizard.pageCount; pg++) {
+      all.push(...autoPlacementsForPage(pg));
+    }
+    sigWizard.placements = all;
+  }
+  renderSigPlacements();
+  updateSignButtonState();
+}
+
+function updateSigPlaceModeUI() {
+  if (!sigWizard) return;
+  const group = document.getElementById('sig-auto-pos-group');
+  const hint = document.getElementById('sig-place-hint');
+  const isAuto = sigWizard.placementMode === 'auto';
+  if (group) group.hidden = !isAuto;
+  if (hint) {
+    hint.textContent = isAuto
+      ? 'En mode automatique, chaque signataire est placé sur toutes les pages à la position choisie. Ajustez ensuite librement : glisser, redimensionner, supprimer (« × »).'
+      : 'En mode manuel, sélectionnez un signataire (puces ci-dessus) puis cliquez sur le document pour placer ou déplacer sa signature. Cliquez sur d\'autres pages pour l\'y ajouter aussi.';
   }
 }
 
@@ -606,7 +825,9 @@ function placeActiveSigner(pageIdx, ev) {
   const size = sigWizard.pageSizes[pageIdx - 1];
   const wPct = 0.24;
   let hPct = 0.1;
-  const probe = sigWizard.placements.find((p) => p.profileId === sigWizard.activeSigner);
+  const probe = sigWizard.placements.find(
+    (p) => p.profileId === sigWizard.activeSigner && p.page === pageIdx
+  );
   if (probe) hPct = placementHeightPct(probe);
   else {
     const block = sigWizard.blocks[sigWizard.activeSigner];
@@ -809,6 +1030,14 @@ async function doSignDocument() {
     const out = await pdfDoc.save();
     const company = currentSigCompanySnapshot();
     const base = sigWizard.title.trim() || sigWizard.fileName.replace(/\.pdf$/i, '') || 'Document';
+
+    // un signataire peut figurer sur plusieurs pages : on regroupe
+    const pagesBySigner = new Map();
+    sigWizard.placements.forEach((p) => {
+      if (!pagesBySigner.has(p.profileId)) pagesBySigner.set(p.profileId, []);
+      pagesBySigner.get(p.profileId).push(p.page);
+    });
+
     const meta = {
       id: generateId(),
       title: base,
@@ -817,9 +1046,17 @@ async function doSignDocument() {
       date: sigWizard.date,
       createdAt: new Date().toISOString(),
       company: { name: company.name, siret: company.siret, city: company.city },
-      signers: sigWizard.placements.map((p) => {
-        const pr = (state.signatureProfiles || []).find((x) => x.id === p.profileId) || {};
-        return { name: pr.name || '?', role: pr.role || '', page: p.page };
+      signers: [...pagesBySigner.entries()].map(([profileId, pages]) => {
+        const pr = (state.signatureProfiles || []).find((x) => x.id === profileId) || {};
+        const co = signerCompanySnapshot(profileId);
+        return {
+          name: pr.name || '?',
+          role: pr.role || '',
+          company: co.name || '',
+          mention: signerMention(profileId),
+          page: pages[0],
+          pages: pages.slice().sort((a, b) => a - b),
+        };
       }),
       fileName: `${base} - signé.pdf`,
       originalName: sigWizard.fileName,
@@ -900,6 +1137,7 @@ function deleteSigProfile(profileId) {
   if (sigWizard) {
     sigWizard.signers = sigWizard.signers.filter((id) => id !== profileId);
     sigWizard.placements = sigWizard.placements.filter((p) => p.profileId !== profileId);
+    delete sigWizard.signerMeta[profileId];
     if (sigWizard.activeSigner === profileId) {
       sigWizard.activeSigner = sigWizard.signers[0] || null;
     }
@@ -1074,10 +1312,14 @@ function submitSigProfile(e) {
   if (sigWizard) {
     // rafraîchit les puces (et invalide les caches d'images du profil modifié)
     renderWizardSigners();
-    refreshSigBlocks().then(() => {
-      renderSigPlacements();
-      updateSignButtonState();
-    });
+    if (sigWizard.placementMode === 'auto') {
+      applyAutoPlacements();
+    } else {
+      refreshSigBlocks().then(() => {
+        renderSigPlacements();
+        updateSignButtonState();
+      });
+    }
   }
 }
 
@@ -1137,11 +1379,30 @@ function initSignatures() {
   });
   $('sig-company-select').addEventListener('change', async (e) => {
     sigWizard.companyId = e.target.value;
+    renderSignersConfig(); // libellés « Entreprise du document » + listes
     await refreshSigBlocks();
     renderSigPlacements();
   });
   $('btn-manage-companies').addEventListener('click', () => showView('companies'));
   $('btn-manage-signers').addEventListener('click', () => showView('profiles'));
+
+  // Assistant : placement automatique / manuel
+  document.querySelectorAll('input[name="sig-place-mode"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+      sigWizard.placementMode = radio.value;
+      updateSigPlaceModeUI();
+      if (sigWizard.placementMode === 'auto') {
+        applyAutoPlacements();
+      } else {
+        renderSigPlacements();
+        updateSignButtonState();
+      }
+    });
+  });
+  $('sig-auto-pos').addEventListener('change', (e) => {
+    sigWizard.autoPosition = e.target.value;
+    applyAutoPlacements();
+  });
 
   // Assistant : signature
   $('btn-sign-doc').addEventListener('click', doSignDocument);

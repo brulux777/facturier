@@ -99,6 +99,14 @@ function duplicateInvoice(invoiceId) {
   if (!inv) return;
 
   editingInvoiceId = null;
+  editorCompanySwitched = false;
+  // La copie part de la même entreprise émettrice que l'original (préfixe
+  // et séquence de numérotation corrects) ; les paramètres de la fiche
+  // seront figés à l'enregistrement, comme pour tout nouveau document.
+  if (inv.companyId && getCompany(inv.companyId)) {
+    populateEditorCompanySelect(inv.companyId);
+    lastEditorTvaExempt = !!editorSettings().tvaExempt;
+  }
   const type = inv.type;
   const newNumber = generateInvoiceNumber(type);
 
@@ -117,7 +125,9 @@ function duplicateInvoice(invoiceId) {
   document.getElementById('client-city').value = inv.client.city || '';
   document.getElementById('client-siret').value = inv.client.siret || '';
 
-  if (inv.clientId) document.getElementById('client-select').value = inv.clientId;
+  // Comme loadInvoiceIntoForm : le sélecteur n'est qu'une aide, toujours
+  // le réaligner sur le document copié (pas de sélection héritée).
+  document.getElementById('client-select').value = inv.clientId || '';
 
   document.getElementById('doc-title').value = inv.title || '';
   document.getElementById('doc-notes').value = inv.notes || '';
