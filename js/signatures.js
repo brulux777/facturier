@@ -308,42 +308,30 @@ function prepareSignatureWizard() {
 
 function populateWizardCompanies() {
   const select = document.getElementById('sig-company-select');
-  const s = state.settings;
   const companies = state.companies || [];
+  const def = getDefaultCompany();
 
-  let html = '';
-  if (s.companyName) {
-    html += `<option value="">${escapeHTML(s.companyName)} (paramètres)</option>`;
+  if (!companies.length) {
+    select.innerHTML = '<option value="">— Aucune entreprise (page Entreprises) —</option>';
   } else {
-    html += '<option value="">— Entreprise des paramètres (non renseignée) —</option>';
+    // Entreprise par défaut en tête, les autres ensuite
+    const ordered = [...companies].sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
+    select.innerHTML = ordered
+      .map((c) => `<option value="${c.id}">${escapeHTML(c.name)}</option>`)
+      .join('');
   }
-  companies.forEach((c) => {
-    html += `<option value="${c.id}">${escapeHTML(c.name)}</option>`;
-  });
-  select.innerHTML = html;
-  if (sigWizard) sigWizard.companyId = '';
+  if (sigWizard) sigWizard.companyId = def ? def.id : '';
+  select.value = def ? def.id : '';
 }
 
 function currentSigCompanySnapshot() {
-  if (sigWizard && sigWizard.companyId) {
-    const c = (state.companies || []).find((x) => x.id === sigWizard.companyId);
-    if (c) {
-      return {
-        name: c.name || '',
-        siret: c.siret || '',
-        city: c.city || '',
-        address: c.address || '',
-        postalCode: c.postalCode || '',
-      };
-    }
-  }
-  const s = state.settings;
+  const c = getCompany(sigWizard && sigWizard.companyId) || getDefaultCompany();
   return {
-    name: s.companyName || '',
-    siret: s.siret || '',
-    city: s.city || '',
-    address: s.address || '',
-    postalCode: s.postalCode || '',
+    name: (c && c.name) || '',
+    siret: (c && c.siret) || '',
+    city: (c && c.city) || '',
+    address: (c && c.address) || '',
+    postalCode: (c && c.postalCode) || '',
   };
 }
 
@@ -860,7 +848,6 @@ let spDrewSomething = false;
 
 function renderProfiles() {
   renderSignersList();
-  renderCompaniesList();
 }
 
 function renderSignersList() {
@@ -1094,123 +1081,6 @@ function submitSigProfile(e) {
   }
 }
 
-// ---------- entreprises ----------
-
-let editingCompanyId = null;
-
-function renderCompaniesList() {
-  const container = document.getElementById('companies-list');
-  if (!container) return;
-  const companies = state.companies || [];
-
-  const importBtn = document.getElementById('btn-import-settings-company');
-  if (importBtn) {
-    const already = state.settings.companyName &&
-      companies.some((c) => c.name.toLowerCase() === state.settings.companyName.toLowerCase());
-    importBtn.style.display = (!state.settings.companyName || already) ? 'none' : '';
-  }
-
-  if (!companies.length) {
-    container.innerHTML = '<p class="empty-state">Aucune entreprise. Utilisez celle des paramètres ou ajoutez vos sociétés ici.</p>';
-    return;
-  }
-  container.innerHTML = companies.map((c) => `
-    <div class="profile-item">
-      <div class="company-item-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-      </div>
-      <div class="profile-item-info">
-        <div class="profile-item-name">${escapeHTML(c.name)}</div>
-        <div class="profile-item-details">
-          ${[c.address, [c.postalCode, c.city].filter(Boolean).join(' '), c.siret ? 'SIRET ' + c.siret : '']
-            .filter(Boolean).join(' · ') || '—'}
-        </div>
-      </div>
-      <div class="profile-item-actions">
-        <button class="btn btn-ghost" onclick="openCompanyModal('${c.id}')" title="Modifier">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-        </button>
-        <button class="btn btn-ghost" onclick="deleteCompany('${c.id}')" title="Supprimer">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        </button>
-      </div>
-    </div>`).join('');
-}
-
-function openCompanyModal(companyId) {
-  editingCompanyId = companyId || null;
-  const modal = document.getElementById('company-modal');
-  const c = companyId ? (state.companies || []).find((x) => x.id === companyId) : null;
-  document.getElementById('cy-title').textContent = c ? "Modifier l'entreprise" : 'Nouvelle entreprise';
-  document.getElementById('cy-name').value = c ? c.name : '';
-  document.getElementById('cy-siret').value = c ? (c.siret || '') : '';
-  document.getElementById('cy-address').value = c ? (c.address || '') : '';
-  document.getElementById('cy-postal').value = c ? (c.postalCode || '') : '';
-  document.getElementById('cy-city').value = c ? (c.city || '') : '';
-  modal.classList.add('active');
-  setTimeout(() => document.getElementById('cy-name').focus(), 50);
-}
-
-function closeCompanyModal() {
-  document.getElementById('company-modal').classList.remove('active');
-  editingCompanyId = null;
-}
-
-function submitCompany(e) {
-  e.preventDefault();
-  const name = document.getElementById('cy-name').value.trim();
-  if (!name) return;
-  const data = {
-    name,
-    siret: document.getElementById('cy-siret').value.trim(),
-    address: document.getElementById('cy-address').value.trim(),
-    postalCode: document.getElementById('cy-postal').value.trim(),
-    city: document.getElementById('cy-city').value.trim(),
-  };
-  const existing = editingCompanyId
-    ? (state.companies || []).find((c) => c.id === editingCompanyId)
-    : null;
-  if (existing) {
-    Object.assign(existing, data);
-    showToast('Entreprise mise à jour');
-  } else {
-    state.companies.push(Object.assign({ id: generateId() }, data));
-    showToast('Entreprise enregistrée');
-  }
-  saveState();
-  closeCompanyModal();
-  renderCompaniesList();
-}
-
-function deleteCompany(companyId) {
-  if (!confirm('Supprimer cette entreprise ?')) return;
-  state.companies = (state.companies || []).filter((c) => c.id !== companyId);
-  if (sigWizard && sigWizard.companyId === companyId) sigWizard.companyId = '';
-  saveState();
-  renderCompaniesList();
-  showToast('Entreprise supprimée');
-}
-
-function importSettingsCompany() {
-  const s = state.settings;
-  if (!s.companyName) return;
-  if ((state.companies || []).some((c) => c.name.toLowerCase() === s.companyName.toLowerCase())) {
-    showToast('Cette entreprise existe déjà', 'error');
-    return;
-  }
-  state.companies.push({
-    id: generateId(),
-    name: s.companyName,
-    siret: s.siret || '',
-    address: s.address || '',
-    postalCode: s.postalCode || '',
-    city: s.city || '',
-  });
-  saveState();
-  renderCompaniesList();
-  showToast('Entreprise importée depuis les paramètres');
-}
-
 // ---------- initialisation ----------
 
 let sigInitialized = false;
@@ -1270,7 +1140,7 @@ function initSignatures() {
     await refreshSigBlocks();
     renderSigPlacements();
   });
-  $('btn-manage-companies').addEventListener('click', () => showView('profiles'));
+  $('btn-manage-companies').addEventListener('click', () => showView('companies'));
   $('btn-manage-signers').addEventListener('click', () => showView('profiles'));
 
   // Assistant : signature
@@ -1289,10 +1159,6 @@ function initSignatures() {
   $('btn-sp-clear').addEventListener('click', resetSpDrawCanvas);
   spCanvasInit();
 
-  // Profils : entreprises
-  $('btn-new-company').addEventListener('click', () => openCompanyModal(null));
-  $('btn-import-settings-company').addEventListener('click', importSettingsCompany);
-  $('cy-close').addEventListener('click', closeCompanyModal);
-  document.querySelector('#company-modal .modal-overlay').addEventListener('click', closeCompanyModal);
-  $('cy-form').addEventListener('submit', submitCompany);
+  // Les entreprises (modale, CRUD) sont gérées par js/companies.js
+  // (page Entreprises partagée avec l'éditeur et la signature).
 }

@@ -1751,3 +1751,157 @@ body.login-page {
 }
 
 
+
+/* ============================================
+   ENTREPRISES (multi-entreprise émettrice) + COMPTE
+   ============================================ */
+
+.companies-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.company-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.company-card-logo {
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-light);
+  overflow: hidden;
+}
+
+.company-card-logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.company-card-logo-empty {
+  color: var(--color-primary);
+}
+
+.company-card-logo-empty svg {
+  width: 26px;
+  height: 26px;
+}
+
+.company-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.company-card-name {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.company-card-details {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.company-card-counters {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.company-card-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.badge-default-ent {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.badge-account-ok {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.badge-account-pending {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.modal-content-wide {
+  max-width: 680px;
+}
+
+.accounts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.account-item {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-item-me {
+  border-color: var(--color-primary);
+}
+
+.account-item-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-radius: var(--radius-sm);
+}
+
+.account-item-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.account-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-item-email {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.account-item-details {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}

@@ -7,6 +7,7 @@ Générateur de factures et devis professionnel, gratuit et open-source. Fonctio
 ## Fonctionnalités
 
 - **Factures & Devis** — Numérotation automatique (éditable), TVA configurable, multi-taux
+- **Multi-entreprise émettrice** — Plusieurs sociétés (page Entreprises) : coordonnées, logo, régime TVA, IBAN, préfixes et séquences de numérotation propres à chacune ; sélecteur d'entreprise dans l'éditeur
 - **Mentions HT/TTC toujours présentes** — même en TVA non applicable (art. 293 B), les totaux affichent Total HT et Total TTC
 - **Cahier des charges** — Markdown optionnel avec 3 emplacements au choix : intégré à la facture, en annexe sur une page séparée du même PDF, ou dans un second PDF téléchargé à part
 - **Paiement en 3 fois** — activable/désactivable par document, échéancier mensuel automatique (montants + dates)
@@ -14,7 +15,8 @@ Générateur de factures et devis professionnel, gratuit et open-source. Fonctio
 - **Signature de documents** — Upload d'un PDF, placement visuel des signatures (clic sur l'aperçu), plusieurs signataires, profils réutilisables (nom en écriture manuscrite ou dessin), choix de l'entreprise signataire, liste des documents signés avec re-téléchargement
 - **PDF professionnel** — Génération et téléchargement de PDF conformes aux normes françaises
 - **Historique** — Recherche, filtrage, statut (brouillon/envoyée/payée), duplication
-- **Paramètres entreprise** — Logo, coordonnées bancaires, mentions légales, bouton Enregistrer
+- **Entreprises** — Une fiche par entité émettrice (adresse, SIRET, TVA, logo, banque, mentions légales, préfixes de numérotation)
+- **Compte** — Email de session, changement de mot de passe, déconnexion, liste des comptes de l'instance, import/export
 - **Import / Export** — Sauvegarde et restauration de toutes les données (JSON)
 - **2 modes de stockage** — Local (navigateur) ou synchronisé sur votre serveur PostgreSQL (voir auto-hébergement)
 
@@ -44,15 +46,16 @@ style.css
 js/
   state.js        — état, persistance (localStorage ou serveur), routing des vues
   server-sync.js  — détection du backend, redirection login, synchronisation serveur
-  settings.js     — paramètres entreprise, logo, import/export
+  companies.js    — entreprises émettrices (multi-entreprise) : CRUD, compteurs, settings effectifs
+  settings.js     — page Compte : session, comptes de l'instance, import/export
   clients.js      — gestion des fiches clients
-  signatures.js   — signature de PDF : assistant, profils signataires/entreprises, liste
-  editor.js       — éditeur de facture/devis, lignes, calculs
+  signatures.js   — signature de PDF : assistant, profils signataires, liste
+  editor.js       — éditeur de facture/devis, lignes, calculs, entreprise émettrice
   pdf.js          — aperçu HTML + génération PDF (pdfmake)
   history.js      — historique, statuts, duplication
   app.js          — initialisation et event bindings
 server/
-  server.js       — serveur Node : statiques + API /api/state + API /api/signed-docs + auth (cookie HMAC)
+  server.js       — serveur Node : statiques + API /api/state + /api/signed-docs + /api/users + auth (cookie HMAC)
 package.json       — dépendance pg
 ```
 
@@ -63,10 +66,26 @@ sont migrées vers le serveur au premier lancement auto-hébergé.
 
 En mode serveur, chaque vue a son URL : `/` (nouveau document),
 `/historique`, `/clients`, `/signature` (documents signés), `/signer`
-(assistant de signature), `/profils` (signataires & entreprises),
-`/parametres`. Toute page demandée sans session valide est redirigée
+(assistant de signature), `/signataires` (profils de signature),
+`/entreprises` (sociétés émettrices), `/compte` (session, comptes,
+import/export ; l'ancienne URL `/parametres` y redirige). Toute page
+demandée sans session valide est redirigée
 (302) vers `/login.html?next=...` — l'app n'est pas servie avant
 authentification, et le login ramène à la page demandée.
+
+### Multi-entreprise émettrice
+
+La page **Entreprises** gère une fiche par entité (ex : Contrôle Web
+micro-entreprise, ELD Contrôle SAS) : coordonnées, SIRET, n° TVA,
+régime (franchise art. 293 B), logo, IBAN, mentions légales, préfixes
+de numérotation. Dans l'éditeur, le **sélecteur d'entreprise émettrice**
+applique ces informations au document : chaque entreprise possède ses
+propres séquences de numérotation (compteurs par entreprise). Les
+documents enregistrés figent une copie des paramètres de l'entreprise
+au moment de l'émission — les PDF déjà générés restent identiques même
+si la fiche évolue. À la première ouverture, les anciens paramètres
+(nom d'entreprise unique) sont migrés automatiquement en première
+entreprise, compteurs inclus.
 
 ### Signature de documents
 
@@ -105,7 +124,7 @@ Les données vivent dans PostgreSQL (conteneur `db`, volume
 
 | Table | Contenu |
 |---|---|
-| `settings` | paramètres entreprise + compteurs + profils entreprises/signataires (JSONB, ligne unique) |
+| `settings` | préférences + compteurs (par entreprise) + profils entreprises/signataires (JSONB, ligne unique) |
 | `clients` | une ligne par client (JSONB) |
 | `invoices` | une ligne par facture/devis (JSONB) |
 | `signed_docs` | documents signés : métadonnées (JSONB) + PDF (BYTEA, 10 Mo max) |

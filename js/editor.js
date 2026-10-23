@@ -8,12 +8,13 @@ let editingInvoiceId = null;
 
 function generateInvoiceNumber(type) {
   const year = new Date().getFullYear();
-  const prefix =
-    type === 'invoice' ? state.settings.invoicePrefix : state.settings.quotePrefix;
+  // Préfixes et séquence propres à l'entreprise émettrice sélectionnée
+  const s = editorSettings();
+  const prefix = type === 'invoice' ? s.invoicePrefix : s.quotePrefix;
   const counterKey = type === 'invoice' ? 'invoice' : 'quote';
   // Pas de saveState() ici : le compteur n'est persisté qu'à l'enregistrement
   // réel du document (saveInvoice), pas au simple chargement du formulaire.
-  const num = String(state.counters[counterKey] + 1).padStart(3, '0');
+  const num = String(companyCounters(editorCompanyId())[counterKey] + 1).padStart(3, '0');
   return `${prefix}-${year}-${num}`;
 }
 
@@ -40,18 +41,20 @@ function toggleEditNumber() {
 // --- Line Items ---
 
 function createEmptyLine() {
+  const s = editorSettings();
   return {
     id: generateId(),
     title: '',
     description: '',
     quantity: 1,
     unitPrice: 0,
-    tvaRate: state.settings.tvaExempt ? 0 : state.settings.defaultTva,
+    tvaRate: s.tvaExempt ? 0 : s.defaultTva,
   };
 }
 
 function renderLineItems() {
   const container = document.getElementById('line-items-container');
+  const tvaDisabled = editorSettings().tvaExempt;
   container.innerHTML = currentLineItems
     .map(
       (item, i) => `
@@ -62,7 +65,7 @@ function renderLineItems() {
         </div>
         <input type="number" value="${item.quantity}" min="0" step="1" data-field="quantity">
         <input type="number" value="${item.unitPrice}" min="0" step="0.01" data-field="unitPrice">
-        <input type="number" value="${item.tvaRate}" min="0" max="100" step="0.1" data-field="tvaRate" ${state.settings.tvaExempt ? 'disabled' : ''}>
+        <input type="number" value="${item.tvaRate}" min="0" max="100" step="0.1" data-field="tvaRate" ${tvaDisabled ? 'disabled' : ''}>
         <div class="li-total-value">${formatCurrency(round2(item.quantity * item.unitPrice))}</div>
         <button type="button" class="btn btn-ghost btn-remove-line" data-index="${i}" title="Supprimer">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -373,7 +376,7 @@ function updateTotalsDOM(t) {
   }
 
   const breakdownEl = document.getElementById('tva-breakdown');
-  breakdownEl.innerHTML = state.settings.tvaExempt
+  breakdownEl.innerHTML = editorSettings().tvaExempt
     ? ''
     : t.tvaBreakdown
         .map(
@@ -393,6 +396,12 @@ function updateTotalsDOM(t) {
 
 function resetInvoiceForm() {
   editingInvoiceId = null;
+
+  // Entreprise émettrice : par défaut la première (ou celle marquée ★)
+  const def = getDefaultCompany();
+  populateEditorCompanySelect(def ? def.id : '');
+  const es = editorSettings();
+  lastEditorTvaExempt = !!es.tvaExempt;
 
   document.getElementById('doc-type').value = 'invoice';
   document.getElementById('doc-number').value = generateInvoiceNumber('invoice');
@@ -432,6 +441,18 @@ function loadInvoiceIntoForm(invoiceId) {
   if (!inv) return;
 
   editingInvoiceId = inv.id;
+
+  // Entreprise émettrice du document (ou détection depuis la copie figée)
+  let cid = inv.companyId;
+  if (!cid || !getCompany(cid)) {
+    const byName = (state.companies || []).find(
+      (c) => inv.settings && c.name && c.name === inv.settings.companyName
+    );
+    cid = byName ? byName.id : (getDefaultCompany() || {}).id;
+  }
+  populateEditorCompanySelect(cid || '');
+  const es = editorSettings();
+  lastEditorTvaExempt = !!es.tvaExempt;
 
   document.getElementById('doc-type').value = inv.type;
   document.getElementById('doc-number').value = inv.number;
@@ -493,6 +514,7 @@ function collectInvoiceData() {
   };
 
   const totals = calculateTotals();
+  const companyId = editorCompanyId() || (getDefaultCompany() || {}).id || null;
 
   return {
     type,
@@ -500,6 +522,7 @@ function collectInvoiceData() {
     title,
     date,
     dueDate,
+    companyId,
     discountPercent,
     acompteAmount,
     acompteDate,
@@ -511,7 +534,9 @@ function collectInvoiceData() {
     cahierDesCharges: getCahierDesCharges(),
     notes,
     totals,
-    settings: { ...state.settings },
+    // Copie figée des paramètres EFFECTIFS de l'entreprise émettrice :
+    // le PDF reste identique même si l'entreprise est modifiée ensuite.
+    settings: getEffectiveSettings(companyId),
   };
 }
 
@@ -546,10 +571,10 @@ function saveInvoice(status = 'draft') {
       };
     }
   } else {
-    // Nouveau document : on incrémente le compteur correspondant ici
-    // (et seulement ici — pas au simple chargement du formulaire)
+    // Nouveau document : on incrémente le compteur de l'entreprise
+    // émettrice (et seulement ici — pas au simple chargement du formulaire)
     const counterKey = data.type === 'quote' ? 'quote' : 'invoice';
-    state.counters[counterKey] = Math.max(state.counters[counterKey] + 1, 1);
+    bumpCompanyCounter(data.companyId, counterKey);
     const invoice = {
       id: generateId(),
       ...data,

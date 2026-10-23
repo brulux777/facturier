@@ -5,7 +5,7 @@
 // --- HTML Preview (modal) ---
 
 function buildInvoiceHTML(data) {
-  const s = data.settings || state.settings;
+  const s = data.settings || getEffectiveSettings(data.companyId);
   const c = data.client;
   const typeLabel = data.type === 'invoice' ? 'FACTURE' : 'DEVIS';
 
@@ -279,7 +279,7 @@ function closePreview() {
 // --- pdfmake PDF Generation ---
 
 function buildPdfDefinition(data) {
-  const s = data.settings || state.settings;
+  const s = data.settings || getEffectiveSettings(data.companyId);
   const c = data.client;
   const typeLabel = data.type === 'invoice' ? 'FACTURE' : 'DEVIS';
   const tvaExempt = !!s.tvaExempt;
@@ -646,7 +646,7 @@ function cdcAnnexPdfBlocks(data, withPageBreak) {
 
 // PDF autonome du cahier des charges (mode 'separate')
 function buildCahierDesChargesPdfDefinition(data) {
-  const s = data.settings || state.settings;
+  const s = data.settings || getEffectiveSettings(data.companyId);
   return {
     content: cdcAnnexPdfBlocks(data, false),
     defaultStyle: { font: 'Roboto' },

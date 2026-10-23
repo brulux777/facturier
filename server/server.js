@@ -754,6 +754,20 @@ const server = http.createServer(async (req, res) => {
       if (pathname === '/api/me' && req.method === 'GET') {
         return sendJson(res, 200, { email });
       }
+      // Comptes de l'instance (page Compte) — emails et statut, jamais
+      // les hash de mots de passe.
+      if (pathname === '/api/users' && req.method === 'GET') {
+        const { rows } = await pool.query(
+          `SELECT email, created_at, email_verified_at FROM users ORDER BY created_at`
+        );
+        return sendJson(res, 200, {
+          users: rows.map((r) => ({
+            email: r.email,
+            createdAt: r.created_at,
+            emailVerifiedAt: r.email_verified_at,
+          })),
+        });
+      }
       if (pathname === '/api/password/change' && req.method === 'POST') {
         const body = await readJsonBody(req);
         const current = String((body && body.current) || '');

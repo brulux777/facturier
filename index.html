@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Caveat:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Parisienne&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=15">
+  <link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
   <div id="app">
@@ -43,11 +43,15 @@
         </button>
         <button class="nav-btn" data-view="profiles">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8" cy="10" r="2"/><path d="M5.5 16.5c.6-1.6 1.7-2.2 2.5-2.2s1.9.6 2.5 2.2"/><path d="M13 8h5"/><path d="M13 12h5"/><path d="M13 16h3"/></svg>
-          Profils
+          Signataires
         </button>
-        <button class="nav-btn" data-view="settings">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Paramètres
+        <button class="nav-btn" data-view="companies">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+          Entreprises
+        </button>
+        <button class="nav-btn" data-view="account">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Compte
         </button>
       </nav>
     </header>
@@ -68,7 +72,12 @@
               <h3>Document</h3>
             </div>
             <div class="card-body">
-            <div class="form-row cols-4">
+              <div class="form-group">
+                <label for="company-select">Entreprise émettrice</label>
+                <select id="company-select"></select>
+                <small class="form-hint">Coordonnées, logo, TVA, IBAN et numérotation propres à l'entreprise sélectionnée — gérez vos sociétés dans « Entreprises ».</small>
+              </div>
+              <div class="form-row cols-4">
                 <div class="form-group">
                   <label for="doc-type">Type</label>
                   <select id="doc-type" name="type">
@@ -435,10 +444,10 @@
         <p class="form-hint sig-status-line">Signature simple apposée sur le PDF — ne constitue pas une signature électronique qualifiée (eIDAS).</p>
       </section>
 
-      <!-- ===== PROFILES VIEW (signataires + entreprises) ===== -->
+      <!-- ===== PROFILES VIEW (signataires) ===== -->
       <section id="view-profiles" class="view">
         <div class="view-header">
-          <h2>Profils</h2>
+          <h2>Signataires</h2>
         </div>
 
         <div class="card">
@@ -455,198 +464,95 @@
             <div id="signers-list" class="profiles-list"></div>
           </div>
         </div>
-
-        <div class="card">
-          <div class="card-header">
-            <h3>Entreprises</h3>
-            <div class="card-actions">
-              <button type="button" id="btn-import-settings-company" class="btn btn-sm btn-outline" title="Créer une entreprise à partir des paramètres">Importer celle des paramètres</button>
-              <button type="button" id="btn-new-company" class="btn btn-primary btn-sm">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Nouvelle entreprise
-              </button>
-            </div>
-          </div>
-          <div class="card-body">
-            <div id="companies-list" class="profiles-list"></div>
-          </div>
-        </div>
       </section>
 
-      <!-- ===== SETTINGS VIEW ===== -->
-      <section id="view-settings" class="view">
+      <!-- ===== COMPANIES VIEW (entreprises émettrices) ===== -->
+      <section id="view-companies" class="view">
         <div class="view-header">
-          <h2>Paramètres</h2>
+          <h2>Entreprises</h2>
           <div class="view-actions">
-            <button type="button" id="btn-import-data" class="btn btn-sm btn-outline" title="Importer une sauvegarde">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              Importer
+            <button type="button" id="btn-new-company" class="btn btn-primary btn-sm">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nouvelle entreprise
             </button>
-            <button type="button" id="btn-export-data" class="btn btn-sm btn-outline" title="Exporter toutes les données">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Exporter
-            </button>
-            <button type="button" id="btn-account" class="btn btn-sm btn-outline" style="display:none;" title="Changer mon mot de passe">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              Mon compte
-            </button>
-            <button type="button" id="btn-logout" class="btn btn-sm btn-outline" style="display:none;" title="Se déconnecter du serveur">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-              Déconnexion
-            </button>
+          </div>
+        </div>
+        <div id="companies-cards" class="companies-cards">
+          <p class="empty-state">Aucune entreprise.</p>
+        </div>
+        <p class="form-hint">Chaque entreprise possède ses coordonnées, son logo, son régime de TVA, son IBAN, ses préfixes et ses séquences de numérotation, et ses mentions légales. L'entreprise par défaut (★) est présélectionnée dans l'éditeur et dans l'assistant de signature. Exemples : Contrôle Web (micro-entreprise), ELD Contrôle SAS — HoplaCollect étant une plateforme portée par ELD Contrôle SAS, ses documents sont émis au nom d'ELD Contrôle SAS.</p>
+      </section>
+
+      <!-- ===== ACCOUNT VIEW (compte) ===== -->
+      <section id="view-account" class="view">
+        <div class="view-header">
+          <h2>Compte</h2>
+          <div class="view-actions">
             <input type="file" id="import-file-input" accept=".json" style="display:none;">
           </div>
         </div>
 
-        <form id="settings-form" autocomplete="off">
-          <!-- Company Info -->
-          <div class="card">
-            <div class="card-header"><h3>Mon entreprise</h3></div>
-            <div class="card-body">
-              <div class="form-row cols-2">
-                <div class="form-group">
-                  <label for="s-company-name">Nom de l'entreprise</label>
-                  <input type="text" id="s-company-name" name="companyName">
-                </div>
-                <div class="form-group">
-                  <label for="s-logo">Logo</label>
-                  <div class="logo-upload">
-                    <input type="file" id="s-logo" name="logo" accept="image/png,image/jpeg,image/svg+xml">
-                    <div id="logo-preview" class="logo-preview"></div>
-                    <button type="button" id="btn-remove-logo" class="btn btn-sm btn-danger" style="display:none;">Supprimer</button>
-                  </div>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="s-address">Adresse</label>
-                <input type="text" id="s-address" name="address">
-              </div>
-              <div class="form-row cols-2">
-                <div class="form-group">
-                  <label for="s-postal">Code postal</label>
-                  <input type="text" id="s-postal" name="postalCode">
-                </div>
-                <div class="form-group">
-                  <label for="s-city">Ville</label>
-                  <input type="text" id="s-city" name="city">
-                </div>
-              </div>
-              <div class="form-row cols-2">
-                <div class="form-group">
-                  <label for="s-siret">SIRET</label>
-                  <input type="text" id="s-siret" name="siret">
-                </div>
-                <div class="form-group" id="tva-number-group">
-                  <label for="s-tva-number">N° TVA intracommunautaire</label>
-                  <input type="text" id="s-tva-number" name="tvaNumber">
-                </div>
-              </div>
-              <div class="form-group form-group-checkbox">
-                <label class="checkbox-label">
-                  <input type="checkbox" id="s-tva-exempt" name="tvaExempt">
-                  <span>Non assujetti à la TVA</span>
-                </label>
-                <small class="form-hint">Auto-entrepreneur / Micro-entreprise — Ajoute automatiquement la mention « TVA non applicable, art. 293 B du CGI »</small>
-              </div>
+        <!-- Mon compte -->
+        <div class="card">
+          <div class="card-header"><h3>Mon compte</h3></div>
+          <div class="card-body">
+            <p class="account-email server-only">Connecté : <strong id="account-email">…</strong></p>
+            <p class="empty-state" id="account-local-note" style="display:none;">Mode local — aucune connexion requise, les données restent dans ce navigateur.</p>
+
+            <form id="account-password-form" class="server-only" autocomplete="off">
               <div class="form-row cols-3">
                 <div class="form-group">
-                  <label for="s-phone">Téléphone</label>
-                  <input type="tel" id="s-phone" name="phone">
+                  <label for="account-current">Mot de passe actuel</label>
+                  <input type="password" id="account-current" required autocomplete="current-password">
                 </div>
                 <div class="form-group">
-                  <label for="s-email">Email</label>
-                  <input type="email" id="s-email" name="email">
+                  <label for="account-new">Nouveau mot de passe</label>
+                  <input type="password" id="account-new" required minlength="8" autocomplete="new-password">
                 </div>
                 <div class="form-group">
-                  <label for="s-website">Site web</label>
-                  <input type="text" id="s-website" name="website" placeholder="exemple.fr">
+                  <label for="account-confirm">Confirmer</label>
+                  <input type="password" id="account-confirm" required minlength="8" autocomplete="new-password">
                 </div>
               </div>
+              <div id="account-status" class="login-error"></div>
+              <button type="submit" class="btn btn-secondary btn-sm">Changer mon mot de passe</button>
+            </form>
+
+            <div class="form-actions server-only" style="margin-top:14px;">
+              <button type="button" id="btn-logout" class="btn btn-outline">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Se déconnecter
+              </button>
             </div>
           </div>
+        </div>
 
-          <!-- Bank Details -->
-          <div class="card">
-            <div class="card-header"><h3>Coordonnées bancaires</h3></div>
-            <div class="card-body">
-              <div class="form-group">
-                <label for="s-bank">Banque</label>
-                <input type="text" id="s-bank" name="bank">
-              </div>
-              <div class="form-row cols-2">
-                <div class="form-group">
-                  <label for="s-iban">IBAN</label>
-                  <input type="text" id="s-iban" name="iban">
-                </div>
-                <div class="form-group">
-                  <label for="s-bic">BIC</label>
-                  <input type="text" id="s-bic" name="bic">
-                </div>
-              </div>
+        <!-- Comptes de l'instance -->
+        <div class="card server-only">
+          <div class="card-header"><h3>Comptes de l'instance</h3></div>
+          <div class="card-body">
+            <div id="accounts-list" class="accounts-list"></div>
+            <small class="form-hint">Comptes autorisés à accéder à cette instance (domaines email autorisés à l'inscription). Tous les comptes partagent les mêmes données.</small>
+          </div>
+        </div>
+
+        <!-- Données (sauvegarde) -->
+        <div class="card">
+          <div class="card-header"><h3>Données</h3></div>
+          <div class="card-body">
+            <p class="form-hint">Sauvegarde complète (entreprises, clients, documents, signataires, documents signés) au format JSON.</p>
+            <div class="form-actions">
+              <button type="button" id="btn-import-data" class="btn btn-outline">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Importer
+              </button>
+              <button type="button" id="btn-export-data" class="btn btn-outline">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Exporter
+              </button>
             </div>
           </div>
-
-          <!-- Defaults -->
-          <div class="card">
-            <div class="card-header"><h3>Valeurs par défaut</h3></div>
-            <div class="card-body">
-              <div class="form-row cols-3">
-                <div class="form-group">
-                  <label for="s-payment-terms">Mode de paiement</label>
-                  <input type="text" id="s-payment-terms" name="defaultPaymentTerms" value="Virement bancaire">
-                </div>
-                <div class="form-group">
-                  <label for="s-payment-delay">Délai de paiement (jours)</label>
-                  <input type="number" id="s-payment-delay" name="defaultPaymentDelay" value="30" min="0">
-                </div>
-                <div class="form-group">
-                  <label for="s-default-tva">Taux TVA par défaut (%)</label>
-                  <input type="number" id="s-default-tva" name="defaultTva" value="20" min="0" max="100" step="0.1">
-                </div>
-              </div>
-              <div class="form-row cols-2">
-                <div class="form-group">
-                  <label for="s-invoice-prefix">Préfixe facture</label>
-                  <input type="text" id="s-invoice-prefix" name="invoicePrefix" value="F">
-                </div>
-                <div class="form-group">
-                  <label for="s-quote-prefix">Préfixe devis</label>
-                  <input type="text" id="s-quote-prefix" name="quotePrefix" value="D">
-                </div>
-              </div>
-              <div class="form-row cols-2">
-                <div class="form-group">
-                  <label for="s-cdc-mode">Cahier des charges — emplacement par défaut</label>
-                  <select id="s-cdc-mode" name="defaultCdcMode">
-                    <option value="inline">Dans la facture (après les totaux)</option>
-                    <option value="annex">Hors facture — annexe dans le même PDF</option>
-                    <option value="separate">Hors facture — PDF séparé (2e fichier)</option>
-                  </select>
-                  <small class="form-hint">Appliqué aux nouveaux documents — reste modifiable par document (onglet Cahier des charges)</small>
-                </div>
-                <div class="form-group form-group-checkbox">
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="s-payment-3x" name="defaultPayment3x">
-                    <span>Paiement en 3 fois par défaut</span>
-                  </label>
-                  <small class="form-hint">Pré-active l'échéancier en 3 mensualités sur les nouveaux documents</small>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="s-legal">Mentions légales</label>
-                <textarea id="s-legal" name="legalMentions" rows="4">En cas de retard de paiement, une pénalité de 3 fois le taux d'intérêt légal sera appliquée, ainsi qu'une indemnité forfaitaire de 40 € pour frais de recouvrement. Pas d'escompte en cas de paiement anticipé.</textarea>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary" id="btn-save-settings">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-              Enregistrer
-            </button>
-          </div>
-
-        </form>
+        </div>
       </section>
 
     </main>
@@ -668,35 +574,6 @@
       </div>
       <div class="modal-body">
         <div id="invoice-preview"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ========== ACCOUNT MODAL (changement de mot de passe) ========== -->
-  <div id="account-modal" class="modal">
-    <div class="modal-overlay"></div>
-    <div class="modal-content" style="max-width:420px;">
-      <div class="modal-header">
-        <h3>Mon compte</h3>
-        <div class="modal-actions">
-          <button type="button" id="account-close" class="btn btn-outline btn-sm">Fermer</button>
-        </div>
-      </div>
-      <div class="modal-body">
-        <p class="account-email">Connecté : <strong id="account-email">…</strong></p>
-        <form id="account-password-form">
-          <label class="login-label">Mot de passe actuel
-            <input type="password" id="account-current" required autocomplete="current-password">
-          </label>
-          <label class="login-label">Nouveau mot de passe (8 caractères min.)
-            <input type="password" id="account-new" required minlength="8" autocomplete="new-password">
-          </label>
-          <label class="login-label">Confirmer le nouveau mot de passe
-            <input type="password" id="account-confirm" required minlength="8" autocomplete="new-password">
-          </label>
-          <div id="account-status" class="login-error"></div>
-          <button type="submit" class="btn btn-primary btn-block">Changer mon mot de passe</button>
-        </form>
       </div>
     </div>
   </div>
@@ -766,7 +643,7 @@
   <!-- ========== COMPANY MODAL (entreprise) ========== -->
   <div id="company-modal" class="modal">
     <div class="modal-overlay"></div>
-    <div class="modal-content" style="max-width:480px;">
+    <div class="modal-content modal-content-wide">
       <div class="modal-header">
         <h3 id="cy-title">Nouvelle entreprise</h3>
         <div class="modal-actions">
@@ -775,19 +652,37 @@
       </div>
       <div class="modal-body">
         <form id="cy-form" autocomplete="off">
-          <div class="form-group">
-            <label for="cy-name">Nom de l'entreprise</label>
-            <input type="text" id="cy-name" required>
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label for="cy-name">Nom de l'entreprise *</label>
+              <input type="text" id="cy-name" required placeholder="Ex : ELD Contrôle SAS">
+            </div>
+            <div class="form-group">
+              <label for="cy-legalform">Forme juridique</label>
+              <input type="text" id="cy-legalform" placeholder="SAS, Micro-entreprise…">
+            </div>
           </div>
-          <div class="form-group">
-            <label for="cy-siret">SIRET (optionnel)</label>
-            <input type="text" id="cy-siret">
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label for="cy-siret">SIRET</label>
+              <input type="text" id="cy-siret">
+            </div>
+            <div class="form-group" id="cy-tva-number-group">
+              <label for="cy-tva-number">N° TVA intracommunautaire</label>
+              <input type="text" id="cy-tva-number">
+            </div>
+          </div>
+          <div class="form-group form-group-checkbox">
+            <label class="checkbox-label">
+              <input type="checkbox" id="cy-tva-exempt">
+              <span>Non assujetti à la TVA (art. 293 B — micro-entreprise)</span>
+            </label>
           </div>
           <div class="form-group">
             <label for="cy-address">Adresse</label>
             <input type="text" id="cy-address">
           </div>
-          <div class="form-row cols-2">
+          <div class="form-row cols-3">
             <div class="form-group">
               <label for="cy-postal">Code postal</label>
               <input type="text" id="cy-postal">
@@ -796,6 +691,61 @@
               <label for="cy-city">Ville</label>
               <input type="text" id="cy-city">
             </div>
+            <div class="form-group">
+              <label for="cy-phone">Téléphone</label>
+              <input type="tel" id="cy-phone">
+            </div>
+          </div>
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label for="cy-email">Email</label>
+              <input type="email" id="cy-email">
+            </div>
+            <div class="form-group">
+              <label for="cy-website">Site web</label>
+              <input type="text" id="cy-website" placeholder="exemple.fr">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="cy-logo">Logo (max 500 Ko)</label>
+            <div class="logo-upload">
+              <input type="file" id="cy-logo" accept="image/png,image/jpeg,image/svg+xml">
+              <div id="cy-logo-preview" class="logo-preview"></div>
+              <button type="button" id="btn-remove-cy-logo" class="btn btn-sm btn-danger" style="display:none;">Supprimer</button>
+            </div>
+          </div>
+          <div class="form-row cols-3">
+            <div class="form-group">
+              <label for="cy-bank">Banque</label>
+              <input type="text" id="cy-bank">
+            </div>
+            <div class="form-group">
+              <label for="cy-iban">IBAN</label>
+              <input type="text" id="cy-iban">
+            </div>
+            <div class="form-group">
+              <label for="cy-bic">BIC</label>
+              <input type="text" id="cy-bic">
+            </div>
+          </div>
+          <div class="form-row cols-4">
+            <div class="form-group">
+              <label for="cy-invoice-prefix">Préfixe facture</label>
+              <input type="text" id="cy-invoice-prefix" value="F" maxlength="6">
+            </div>
+            <div class="form-group">
+              <label for="cy-quote-prefix">Préfixe devis</label>
+              <input type="text" id="cy-quote-prefix" value="D" maxlength="6">
+            </div>
+            <div class="form-group">
+              <label for="cy-default-tva">Taux TVA par défaut (%)</label>
+              <input type="number" id="cy-default-tva" value="20" min="0" max="100" step="0.1">
+            </div>
+            <div class="form-group"></div>
+          </div>
+          <div class="form-group">
+            <label for="cy-legal">Mentions légales (pied de document)</label>
+            <textarea id="cy-legal" rows="3"></textarea>
           </div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary btn-block">Enregistrer</button>
@@ -812,7 +762,7 @@
   <div id="first-run-banner" class="first-run-banner" style="display:none;">
     <div class="first-run-content">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      <p>Commencez par configurer vos informations d'entreprise dans les <strong>Paramètres</strong>.</p>
+      <p>Commencez par créer vos <strong>entreprises</strong> (émettrices des factures et devis).</p>
       <button type="button" id="btn-go-settings" class="btn btn-primary btn-sm">Configurer</button>
       <button type="button" id="btn-dismiss-banner" class="btn btn-outline btn-sm">Plus tard</button>
     </div>
@@ -822,15 +772,16 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="js/state.js?v=15"></script>
-  <script src="js/server-sync.js?v=15"></script>
-  <script src="js/markdown.js?v=15"></script>
-  <script src="js/settings.js?v=15"></script>
-  <script src="js/clients.js?v=15"></script>
-  <script src="js/signatures.js?v=15"></script>
-  <script src="js/editor.js?v=15"></script>
-  <script src="js/pdf.js?v=15"></script>
-  <script src="js/history.js?v=15"></script>
-  <script src="js/app.js?v=15"></script>
+  <script src="js/state.js?v=16"></script>
+  <script src="js/server-sync.js?v=16"></script>
+  <script src="js/markdown.js?v=16"></script>
+  <script src="js/companies.js?v=16"></script>
+  <script src="js/settings.js?v=16"></script>
+  <script src="js/clients.js?v=16"></script>
+  <script src="js/signatures.js?v=16"></script>
+  <script src="js/editor.js?v=16"></script>
+  <script src="js/pdf.js?v=16"></script>
+  <script src="js/history.js?v=16"></script>
+  <script src="js/app.js?v=16"></script>
 </body>
 </html>

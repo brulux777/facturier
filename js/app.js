@@ -3,21 +3,22 @@
    ============================================ */
 function init() {
   loadState();
-  loadSettingsForm();
   populateClientSelect();
+
+  // Migration multi-entreprise (mode serveur : loadState ne lit pas l'état)
+  if (typeof ensureCompaniesMigrated === 'function' && ensureCompaniesMigrated()) {
+    saveState();
+  }
 
   // Navigation
   document.querySelectorAll('.nav-btn').forEach((btn) => {
     btn.addEventListener('click', () => showView(btn.dataset.view));
   });
 
-  // Settings form — enregistrement explicite via le bouton "Enregistrer"
-  document.getElementById('settings-form').addEventListener('submit', saveSettings);
-  document.getElementById('s-logo').addEventListener('change', handleLogoUpload);
-  document.getElementById('btn-remove-logo').addEventListener('click', removeLogo);
-  document.getElementById('s-tva-exempt').addEventListener('change', updateTvaExemptUI);
+  // Entreprises (page + modale + sélecteur de l'éditeur)
+  initCompanies();
 
-  // Import / Export
+  // Compte : import / export des données
   document.getElementById('btn-export-data').addEventListener('click', exportData);
   document.getElementById('btn-import-data').addEventListener('click', () => {
     document.getElementById('import-file-input').click();
@@ -80,23 +81,21 @@ function init() {
   document.getElementById('history-search').addEventListener('input', renderHistory);
   document.getElementById('history-filter').addEventListener('change', renderHistory);
 
-  // First-run banner (mode local uniquement — jamais en mode serveur)
-  if (!SERVER_MODE && !state.settings.companyName) {
+  // First-run banner (mode local uniquement — jamais en mode serveur) :
+  // premières entreprises à créer (émetteurs des factures)
+  if (!SERVER_MODE && !(state.companies || []).length) {
     document.getElementById('first-run-banner').style.display = '';
     document.getElementById('btn-go-settings').addEventListener('click', () => {
       document.getElementById('first-run-banner').style.display = 'none';
-      showView('settings');
+      showView('companies');
     });
     document.getElementById('btn-dismiss-banner').addEventListener('click', () => {
       document.getElementById('first-run-banner').style.display = 'none';
     });
   }
 
-  // Logout + compte (mode serveur uniquement)
+  // Logout + changement de mot de passe (page Compte, mode serveur)
   document.getElementById('btn-logout').addEventListener('click', doLogout);
-  document.getElementById('btn-account').addEventListener('click', openAccountModal);
-  document.getElementById('account-close').addEventListener('click', closeAccountModal);
-  document.querySelector('#account-modal .modal-overlay').addEventListener('click', closeAccountModal);
   document.getElementById('account-password-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const statusEl = document.getElementById('account-status');
@@ -110,7 +109,7 @@ function init() {
     }
     const result = await changePassword(current, next);
     if (result === 'ok') {
-      closeAccountModal();
+      document.getElementById('account-password-form').reset();
       showToast('Mot de passe modifié');
     } else if (result !== 'session') {
       statusEl.textContent = result;

@@ -36,37 +36,7 @@ async function doLogout() {
   location.replace('/login.html');
 }
 
-// ---------- Compte : changement de mot de passe ----------
-
-function setServerButtons(visible) {
-  document.getElementById('btn-logout').style.display = visible ? '' : 'none';
-  const accountBtn = document.getElementById('btn-account');
-  if (accountBtn) accountBtn.style.display = visible ? '' : 'none';
-}
-
-async function openAccountModal() {
-  const emailEl = document.getElementById('account-email');
-  const statusEl = document.getElementById('account-status');
-  emailEl.textContent = '…';
-  statusEl.textContent = '';
-  document.getElementById('account-modal').classList.add('active');
-  try {
-    const r = await fetch('/api/me', { credentials: 'same-origin' });
-    if (r.status === 401) return redirectToLogin();
-    const j = await r.json();
-    emailEl.textContent = j.email || '?';
-  } catch (e) {
-    emailEl.textContent = 'inconnu (serveur injoignable)';
-  }
-}
-
-function closeAccountModal() {
-  document.getElementById('account-modal').classList.remove('active');
-  ['account-current', 'account-new', 'account-confirm'].forEach((id) => {
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('account-status').textContent = '';
-}
+// ---------- Compte : changement de mot de passe (page /compte) ----------
 
 async function changePassword(current, next) {
   const r = await fetch('/api/password/change', {
@@ -131,7 +101,6 @@ function scheduleServerSync(delay = 400) {
  */
 async function syncBootstrap() {
   await detectServerMode();
-  setServerButtons(SERVER_MODE);
 
   if (!SERVER_MODE) {
     loadState(); // mode local (GitHub Pages / fichier)
@@ -146,7 +115,6 @@ async function syncBootstrap() {
     showToast('Serveur injoignable — mode local', 'error');
     loadState();
     SERVER_MODE = false;
-    setServerButtons(false);
     return;
   }
 
@@ -157,6 +125,11 @@ async function syncBootstrap() {
     state.counters = serverState.counters || { invoice: 0, quote: 0 };
     state.companies = serverState.companies || [];
     state.signatureProfiles = serverState.signatureProfiles || [];
+    // Migration multi-entreprise (comptes existants) : 1re entreprise
+    // depuis les anciens paramètres, compteurs par entité — puis synchro
+    if (typeof ensureCompaniesMigrated === 'function' && ensureCompaniesMigrated()) {
+      saveState();
+    }
     return;
   }
 
@@ -176,6 +149,7 @@ async function syncBootstrap() {
     state.counters = saved.counters || { invoice: 0, quote: 0 };
     state.companies = saved.companies || [];
     state.signatureProfiles = saved.signatureProfiles || [];
+    if (typeof ensureCompaniesMigrated === 'function') ensureCompaniesMigrated();
     const ok = await pushStateToServer();
     if (ok) {
       localStorage.removeItem(STORAGE_KEY);

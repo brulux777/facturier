@@ -31,13 +31,27 @@ Points importants :
 - La création de compte est réservée aux adresses email des domaines
   autorisés : `@controleweb.fr`, `@eldcontrole.fr`, `@hoplacollect.fr`
   (variable `ALLOWED_EMAIL_DOMAINS` côté serveur).
-- Dans l'application, la page **Profils** permet d'enregistrer une fiche
-  par entreprise (Contrôle Web et ELD Contrôle SAS) avec ses
-  coordonnées. Lors de la **signature d'un document**, on sélectionne
-  l'entreprise signataire ; son nom apparaît sous chaque signature.
-- Les paramètres généraux (page **Paramètres**) définissent l'émetteur
-  par défaut des factures et devis (logo, coordonnées, mentions
-  légales, IBAN).
+
+### Page Entreprises
+
+La page **Entreprises** gère une fiche complète par entité émettrice :
+nom, forme juridique, adresse, SIRET, n° TVA (ou franchise art. 293 B
+pour les micro-entreprises), logo, coordonnées bancaires, mentions
+légales, préfixes de numérotation. L'entreprise par défaut (★) est
+présélectionnée dans l'éditeur et l'assistant de signature.
+
+Dans l'**éditeur**, le **sélecteur d'entreprise émettrice** (en tête du
+document) applique automatiquement les informations de la société
+choisie : coordonnées et logo du PDF, régime TVA (taux des lignes,
+mention 293 B), IBAN, mentions légales et **séquence de numérotation
+propre à chaque entreprise** (ex : `CW-2026-001` pour Contrôle Web,
+`F-2026-001` pour ELD Contrôle SAS). Chaque document enregistré fige
+une copie des paramètres de son entreprise émettrice : les PDF déjà
+émis restent identiques même si la fiche évolue ensuite.
+
+À la première ouverture après mise à jour, l'ancienne configuration
+unique (page Paramètres historique) est migrée automatiquement en
+première entreprise, compteurs de numérotation inclus.
 
 ---
 
@@ -52,7 +66,7 @@ L'application détecte seule son mode de fonctionnement au chargement
 - **Mode local** (démo statique) : tout reste dans le `localStorage`
   du navigateur, aucun serveur.
 
-### Authentification
+### Authentification et comptes
 
 - Comptes en base (email + mot de passe scrypt), création libre
   **limitée aux domaines autorisés** (voir ci-dessus).
@@ -63,6 +77,10 @@ L'application détecte seule son mode de fonctionnement au chargement
   1 h, usage unique) — un serveur SMTP est donc requis.
 - Sessions par cookie signé (HMAC), durée configurable
   (`SESSION_TTL_DAYS`, 30 jours par défaut).
+- La page **Compte** affiche l'email de session, permet le changement
+  de mot de passe et la déconnexion, et liste **tous les comptes de
+  l'instance** (API `/api/users` : email, date de création, statut de
+  vérification).
 
 ### Vues de l'application
 
@@ -70,13 +88,17 @@ Chaque vue a son URL (en mode serveur) :
 
 | URL | Vue | Rôle |
 |---|---|---|
-| `/` | Éditeur | Création d'une facture ou d'un devis |
+| `/` | Éditeur | Création d'une facture ou d'un devis (sélecteur d'entreprise émettrice) |
 | `/historique` | Historique | Recherche, filtrage, statuts (brouillon/envoyée/payée), duplication |
 | `/clients` | Clients | Fiches clients réutilisables |
 | `/signature` | Signature | Liste des documents signés (re-téléchargement, suppression) |
 | `/signer` | Signer | Assistant de signature d'un PDF |
-| `/profils` | Profils | Signataires et entreprises (multi-entreprise) |
-| `/parametres` | Paramètres | Émetteur par défaut, logo, banque, mentions légales, import/export |
+| `/signataires` | Signataires | Profils de signature (nom manuscrit ou dessin) |
+| `/entreprises` | Entreprises | Fiches des sociétés émettrices (multi-entreprise) |
+| `/compte` | Compte | Session, changement de mot de passe, déconnexion, comptes de l'instance, import/export |
+
+Les anciennes URL `/profils` et `/parametres` redirigent
+respectivement vers `/signataires` et `/compte`.
 
 ### Factures et devis
 
@@ -120,7 +142,7 @@ Les données vivent dans PostgreSQL (conteneur `facturier-db`, volume
 
 | Table | Contenu |
 |---|---|
-| `settings` | Paramètres + compteurs + profils entreprises/signataires (JSONB) |
+| `settings` | Préférences + compteurs (par entreprise) + profils entreprises/signataires (JSONB) |
 | `clients` | Une ligne par client (JSONB) |
 | `invoices` | Une ligne par facture/devis (JSONB) |
 | `signed_docs` | Documents signés : métadonnées (JSONB) + PDF (BYTEA) |

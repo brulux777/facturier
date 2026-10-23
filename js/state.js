@@ -52,6 +52,11 @@ function loadState() {
       state.counters = saved.counters || { invoice: 0, quote: 0 };
       state.companies = saved.companies || [];
       state.signatureProfiles = saved.signatureProfiles || [];
+      // Migration multi-entreprise (1re entreprise depuis les anciens
+      // paramètres, compteurs par entreprise) — persistée si nécessaire
+      if (typeof ensureCompaniesMigrated === 'function' && ensureCompaniesMigrated()) {
+        saveState();
+      }
     }
   } catch (e) {
     console.error('Failed to load state:', e);
@@ -153,8 +158,9 @@ const VIEW_PATHS = {
   clients: '/clients',
   signatures: '/signature',
   signatureNew: '/signer',
-  profiles: '/profils',
-  settings: '/parametres',
+  profiles: '/signataires',
+  companies: '/entreprises',
+  account: '/compte',
 };
 const PATH_VIEWS = {
   '/': 'editor',
@@ -162,8 +168,11 @@ const PATH_VIEWS = {
   '/clients': 'clients',
   '/signature': 'signatures',
   '/signer': 'signatureNew',
-  '/profils': 'profiles',
-  '/parametres': 'settings',
+  '/signataires': 'profiles',
+  '/profils': 'profiles', // ancienne URL : redirection douce
+  '/entreprises': 'companies',
+  '/compte': 'account',
+  '/parametres': 'account', // ancienne URL : redirection douce vers le compte
 };
 
 function showView(viewId, navigate = true) {
@@ -181,6 +190,8 @@ function showView(viewId, navigate = true) {
   if (viewId === 'signatures') renderSignaturesList(true);
   if (viewId === 'signatureNew') prepareSignatureWizard();
   if (viewId === 'profiles') renderProfiles();
+  if (viewId === 'companies') renderCompanies();
+  if (viewId === 'account') renderAccountPage();
 
   // URL dédiée par vue (/parametres, /clients, /historique) en mode serveur
   if (navigate && typeof SERVER_MODE !== 'undefined' && SERVER_MODE) {
