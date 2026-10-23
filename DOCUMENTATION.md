@@ -38,7 +38,7 @@ La page **Entreprises** gère une fiche complète par entité émettrice :
 nom, forme juridique, adresse, SIRET, n° TVA (ou franchise art. 293 B
 pour les micro-entreprises), logo, coordonnées bancaires, mentions
 légales, préfixes de numérotation. L'entreprise par défaut (★) est
-présélectionnée dans l'éditeur et l'assistant de signature.
+présélectionnée dans l'éditeur.
 
 Dans l'**éditeur**, le **sélecteur d'entreprise émettrice** (en tête du
 document) applique automatiquement les informations de la société
@@ -96,8 +96,8 @@ Chaque vue a son URL (en mode serveur) :
 | `/historique` | Historique | Recherche, filtrage, statuts (brouillon/envoyée/payée), duplication |
 | `/clients` | Clients | Fiches clients réutilisables |
 | `/signature` | Signature | Liste des documents signés (re-téléchargement, suppression) |
-| `/signer` | Signer | Assistant de signature d'un PDF |
-| `/signataires` | Signataires | Profils de signature (nom manuscrit ou dessin) |
+| `/signer` | Signer | Assistant de signature d'un PDF : signataires, renommage du fichier, placement (sans édition) |
+| `/signataires` | Signataires | Fiches de signature : nom manuscrit (IA) ou dessin, lignes de bloc facultatives |
 | `/entreprises` | Entreprises | Fiches des sociétés émettrices (multi-entreprise) |
 | `/compte` | Compte | Session, changement de mot de passe, déconnexion, comptes de l'instance, import/export |
 
@@ -123,56 +123,66 @@ respectivement vers `/signataires` et `/compte`.
 Signature **simple** apposée sur un PDF (garde-fou visuel — ce n'est
 pas une signature électronique qualifiée au sens du règlement eIDAS).
 
-1. Uplooder le PDF (8 Mo max, non protégé par mot de passe).
-2. Renseigner titre, type, date, description.
-3. Choisir **l'entreprise signataire** (Contrôle Web ou ELD Contrôle
-   SAS, depuis les profils).
-4. Sélectionner les signataires (profils réutilisables). Chaque signataire
-   peut avoir **sa propre entreprise signataire** (par défaut celle du
-   document) et une **mention** (ex. « Bon pour accord », suggestions
-   proposées, champ libre).
-5. Composer le **contenu du bloc** — chaque ligne est facultative :
-   - **dessin** de la signature (si le profil en a un) ;
-   - **nom / prénom** en écriture manuscrite **générée par IA** à partir
-     du texte (réseau de neurones LSTM du modèle calligrapher.ai,
-     auto-hébergé dans `vendor/handwriting/`, ~2,6 Mo chargés une fois) ;
-   - **phrase** manuscrite libre (multi-lignes, transformée en écriture
-     à la main) ;
-   - **date** manuscrite (« Fait à …, le 23 octobre 2026 ») ;
-   - **fonction** et **entreprise** (textes du bloc) ;
-   - **lignes supplémentaires** manuscrites, en nombre libre.
-   Chaque signataire possède sa « main » : graine stable, style
-   (10 styles + aléatoire), lisibilité et **nouvelle variante**
-   réglables dans sa fiche (page Signataires). Accents gérés
-   (translittérés), traits identiques à graine identique. Si le moteur
-   est indisponible, repli automatique sur les polices manuscrites
-   (Caveat…). Les **textes du bloc** restent réglables : taille
-   (70–180 %), couleur et police.
-6. Placer les signatures :
-   - **automatique** : chaque signataire est placé sur **toutes les
-     pages** à la position par défaut choisie (bas, haut, bord
-     gauche, bord droit, ou un des quatre coins), avec répartition
-     sans chevauchement (côte à côte horizontalement, empilés à
-     gauche/droite). Déplacer ou redimensionner un bloc entraîne ses
-     copies sur toutes les autres pages ; « × » supprime uniquement
-     la copie de la page ;
-   - **précis** : cliquer sur la première page pour placer un
-     signataire — la position est reproduite sur toutes les pages,
-     puis chaque page s'ajuste librement (glisser, redimensionner,
-     supprimer : réglages locaux) ;
-   - **manuel** : cliquer sur l'aperçu pour placer ou déplacer une
-     signature page par page (un même signataire peut figurer sur
-     plusieurs pages, chaque copie étant indépendante).
+L'assistant `/signer` ne fait aucune édition de document : il sélectionne
+les signatures de la page Signataires et les place sur le PDF.
 
-   Dans les deux modes, chaque bloc reste ajustable (glisser,
+1. Uploader le PDF (8 Mo max, non protégé par mot de passe) et, si
+   besoin, **renommer le fichier signé** (pré-rempli avec le nom du
+   fichier téléversé).
+2. Sélectionner les signataires — profils réutilisables de la page
+   Signataires. Le contenu de leur bloc (mention, date, lignes…)
+   se règle sur leur fiche (voir ci-dessous).
+3. Placer les signatures :
+   - **commune à toutes les pages**, avec 3 types de placement :
+     - **automatique** : chaque signataire est placé sur **toutes les
+       pages** à la position par défaut choisie (bas, haut, bord
+       gauche, bord droit, ou un des quatre coins), avec répartition
+       sans chevauchement (côte à côte horizontalement, empilés à
+       gauche/droite). Déplacer ou redimensionner un bloc entraîne ses
+       copies sur toutes les autres pages ; « × » supprime uniquement
+       la copie de la page ;
+     - **précis** : cliquer sur la première page pour placer un
+       signataire — la position est reproduite sur toutes les pages,
+       puis chaque page s'ajuste librement (glisser, redimensionner,
+       supprimer : réglages locaux) ;
+     - **manuel** : cliquer sur l'aperçu pour placer ou déplacer une
+       signature page par page ;
+   - **autonome** : chaque bloc est **pleinement indépendant** — on
+     sélectionne un signataire puis on clique où l'on veut, autant de
+     fois que nécessaire. Plusieurs signatures **différentes** peuvent
+     ainsi figurer sur certaines pages seulement.
+
+   Dans tous les cas, chaque bloc reste ajustable (glisser,
    redimensionner, supprimer), puis **Signer le document**.
 
-Le bloc signature (mention + les lignes choisies : dessin, nom
-manuscrit généré, phrase, date, fonction, entreprise, lignes
-supplémentaires) est incrusté dans le PDF, téléchargé immédiatement et
-archivé dans la liste « Signature » (avec mention et entreprise par
-signataire). En mode serveur, les PDF signés sont stockés en base
-(table `signed_docs`, 10 Mo max).
+Le fichier est téléchargé sous le nom choisi (`.pdf`) et archivé dans
+la liste « Signature ». En mode serveur, les PDF signés sont stockés
+en base (table `signed_docs`, 10 Mo max).
+
+### Signataires (page /signataires)
+
+Chaque signataire possède une fiche complète :
+
+- **nom** et fonction ;
+- le type de signature : **dessin** à la main, ou **nom en écriture
+  manuscrite générée par IA** à partir du texte (réseau de neurones
+  LSTM du modèle calligrapher.ai, auto-hébergé dans
+  `vendor/handwriting/`, ~2,6 Mo chargés une fois) ;
+- sa « main » : graine stable, style (10 styles + aléatoire),
+  lisibilité et **nouvelle variante**. Accents gérés (translittérés),
+  traits identiques à graine identique. Si le moteur est indisponible,
+  repli automatique sur les polices manuscrites (Caveat…) ;
+- des **lignes de bloc facultatives, en nombre libre** : chacune est
+  un texte au choix **manuscrit** (généré par IA), en **mention**
+  (italique) ou en **texte** simple ; `{date}` y est remplacé par la
+  date du jour en toutes lettres, et un retour à la ligne dans un
+  texte crée une ligne de bloc supplémentaire ;
+- le style des textes : taille (70–180 %), couleur et police.
+
+La fiche affiche un **aperçu du bloc complet** (signature + lignes)
+en direct. Les signataires créés avant cette version retrouvent
+automatiquement le contenu par défaut de l'ancien assistant
+(mention, date, fonction).
 
 ---
 

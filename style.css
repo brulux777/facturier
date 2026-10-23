@@ -2450,6 +2450,65 @@ body.login-page {
   line-height: 1;
 }
 
+/* modale signataire : lignes du bloc (style + texte multi-lignes) */
+.sp-line-row {
+  align-items: flex-start;
+}
+.sp-line-row select {
+  flex: 0 0 150px;
+  padding: 7px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.78rem;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+.sp-line-row select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+.sp-line-row textarea {
+  flex: 1;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.82rem;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  resize: vertical;
+  font-family: inherit;
+}
+.sp-line-row textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+/* modale signataire : aperçu du bloc complet (signature + lignes) */
+.sp-block-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 90px;
+  padding: 10px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.sp-block-preview img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
 /* vue compacte de l'assistant (colonne gauche étroite) */
 #view-signatureNew .sig-block-checks {
   gap: 4px 10px;

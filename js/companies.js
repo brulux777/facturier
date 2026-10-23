@@ -442,9 +442,6 @@ function deleteCompany(companyId) {
   if (!state.companies.some((c) => c.isDefault) && state.companies[0]) {
     state.companies[0].isDefault = true;
   }
-  if (typeof sigWizard !== 'undefined' && sigWizard && sigWizard.companyId === companyId) {
-    sigWizard.companyId = '';
-  }
   saveState();
   renderCompanies();
   refreshEditorAfterCompanyChange();

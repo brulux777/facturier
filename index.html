@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Caveat:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Parisienne&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=19">
+  <link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
   <div id="app">
@@ -374,62 +374,25 @@
               </div>
               <button type="button" id="btn-change-sig-pdf" class="btn btn-outline btn-sm">Changer</button>
             </div>
-            <div class="form-row cols-3">
-              <div class="form-group">
-                <label for="sig-title">Titre / Objet</label>
-                <input type="text" id="sig-title" placeholder="Ex : Contrat de maintenance — Dupont">
-              </div>
-              <div class="form-group">
-                <label for="sig-type">Type de document</label>
-                <select id="sig-type">
-                  <option>Contrat</option>
-                  <option>Devis</option>
-                  <option>Facture</option>
-                  <option>Bon de commande</option>
-                  <option>Avenant</option>
-                  <option>Attestation</option>
-                  <option>Convention</option>
-                  <option>Autre</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="sig-date">Date de signature</label>
-                <input type="date" id="sig-date">
-              </div>
-            </div>
             <div class="form-group">
-              <label for="sig-description">Quel est ce document ? (description libre)</label>
-              <textarea id="sig-description" rows="1" placeholder="Ex : Convention de partenariat pour la saison 2026, signée entre les deux parties."></textarea>
+              <label for="sig-output-name">Nom du fichier signé</label>
+              <input type="text" id="sig-output-name" placeholder="Ex : Contrat maintenance 2026">
+              <small class="form-hint">Le PDF signé sera téléchargé et archivé sous ce nom (pré-rempli avec le nom du fichier).</small>
             </div>
           </div>
         </div>
 
-        <!-- 2. Signataires (entreprise + signataires) -->
+        <!-- 2. Signataires -->
         <div class="card">
           <div class="card-header">
             <h3>2. Signataires</h3>
             <div class="card-actions">
-              <button type="button" id="btn-manage-companies" class="btn btn-sm btn-outline">Entreprises</button>
               <button type="button" id="btn-manage-signers" class="btn btn-sm btn-outline">Gérer les signataires</button>
             </div>
           </div>
           <div class="card-body">
-            <div class="form-group">
-              <label for="sig-company-select">Quelle société signe ce document ?</label>
-              <select id="sig-company-select"></select>
-              <small class="form-hint">Apparaît sous chaque signature — sociétés gérées via « Entreprises ».</small>
-            </div>
             <div id="sig-signers-chips" class="sig-chips"></div>
-            <small class="form-hint">Cliquez pour sélectionner un signataire (un 2ᵉ clic le retire) ; chaque signataire sélectionné doit ensuite être placé : automatique, précis ou manuel.</small>
-            <div id="sig-signers-config" class="sig-signers-config"></div>
-            <datalist id="sig-mentions">
-              <option value="Bon pour accord"></option>
-              <option value="Bon pour accord et exécution"></option>
-              <option value="Lu et approuvé"></option>
-              <option value="Certifié sincère et véritable"></option>
-              <option value="Reçu et accepté"></option>
-              <option value="Certifié exact"></option>
-            </datalist>
+            <small class="form-hint">Cliquez pour sélectionner un signataire (un 2ᵉ clic le retire). Le contenu de chaque bloc (mention, date, lignes…) se règle sur sa fiche, page Signataires.</small>
           </div>
         </div>
 
@@ -437,39 +400,54 @@
         <div class="card">
           <div class="card-header"><h3>3. Placement des signatures</h3></div>
           <div class="card-body">
-            <div class="form-row cols-2 sig-place-row">
-              <div class="form-group">
-                <label>Mode de placement</label>
-                <div class="radio-row">
-                  <label class="radio-pill">
-                    <input type="radio" name="sig-place-mode" value="auto" checked>
-                    <span>Automatique</span>
-                  </label>
-                  <label class="radio-pill">
-                    <input type="radio" name="sig-place-mode" value="precise">
-                    <span>Précis (1<sup>re</sup> page)</span>
-                  </label>
-                  <label class="radio-pill">
-                    <input type="radio" name="sig-place-mode" value="manual">
-                    <span>Manuel</span>
-                  </label>
-                </div>
-              </div>
-              <div class="form-group" id="sig-auto-pos-group">
-                <label for="sig-auto-pos">Position automatique</label>
-                <select id="sig-auto-pos">
-                  <option value="bottom">Bas de page</option>
-                  <option value="top">Haut de page</option>
-                  <option value="left">Bord gauche</option>
-                  <option value="right">Bord droit</option>
-                  <option value="bottom-right">Bas à droite</option>
-                  <option value="bottom-left">Bas à gauche</option>
-                  <option value="top-right">Haut à droite</option>
-                  <option value="top-left">Haut à gauche</option>
-                </select>
+            <div class="form-group">
+              <label>Mode</label>
+              <div class="radio-row">
+                <label class="radio-pill">
+                  <input type="radio" name="sig-scope" value="common" checked>
+                  <span>Commune — toutes les pages</span>
+                </label>
+                <label class="radio-pill">
+                  <input type="radio" name="sig-scope" value="free">
+                  <span>Autonome — certaines pages</span>
+                </label>
               </div>
             </div>
-            <small class="form-hint" id="sig-place-hint">Automatique : toutes les pages à la position choisie. Déplacer ou redimensionner un bloc entraîne ses copies ; « × » supprime la copie de la page.</small>
+            <div id="sig-common-options">
+              <div class="form-row cols-2 sig-place-row">
+                <div class="form-group">
+                  <label>Type de placement</label>
+                  <div class="radio-row">
+                    <label class="radio-pill">
+                      <input type="radio" name="sig-place-mode" value="auto" checked>
+                      <span>Automatique</span>
+                    </label>
+                    <label class="radio-pill">
+                      <input type="radio" name="sig-place-mode" value="precise">
+                      <span>Précis (1<sup>re</sup> page)</span>
+                    </label>
+                    <label class="radio-pill">
+                      <input type="radio" name="sig-place-mode" value="manual">
+                      <span>Manuel</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="form-group" id="sig-auto-pos-group">
+                  <label for="sig-auto-pos">Position automatique</label>
+                  <select id="sig-auto-pos">
+                    <option value="bottom">Bas de page</option>
+                    <option value="top">Haut de page</option>
+                    <option value="left">Bord gauche</option>
+                    <option value="right">Bord droit</option>
+                    <option value="bottom-right">Bas à droite</option>
+                    <option value="bottom-left">Bas à gauche</option>
+                    <option value="top-right">Haut à droite</option>
+                    <option value="top-left">Haut à gauche</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <small class="form-hint" id="sig-place-hint">Commune · automatique : toutes les pages à la position choisie. Déplacer ou redimensionner un bloc entraîne ses copies ; « × » supprime la copie de la page.</small>
           </div>
         </div>
 
@@ -705,6 +683,36 @@
               <button type="button" id="btn-sp-clear" class="btn btn-outline btn-sm" style="margin-top:8px;">Effacer</button>
             </div>
           </div>
+          <div class="form-group">
+            <label>Lignes du bloc de signature (facultatives — autant que vous voulez)</label>
+            <div id="sp-lines" class="sig-extra-lines"></div>
+            <button type="button" id="btn-sp-add-line" class="btn-link">+ Ajouter une ligne</button>
+            <small class="form-hint">Chaque ligne apparaît sous la signature, dans le style choisi. « {date} » est remplacé par la date du jour en toutes lettres ; un retour à la ligne dans un texte crée une ligne supplémentaire du bloc.</small>
+          </div>
+          <details class="sig-style-details" id="sp-text-style-details">
+            <summary>Texte des lignes — taille, couleur, police</summary>
+            <div class="form-row cols-3" style="margin-top:8px;">
+              <div class="form-group">
+                <label for="sp-text-scale">Taille</label>
+                <span class="sig-style-size">
+                  <input type="range" id="sp-text-scale" min="0.7" max="1.8" step="0.05" value="1">
+                  <output id="sp-text-scale-out">100 %</output>
+                </span>
+              </div>
+              <div class="form-group">
+                <label for="sp-text-color">Couleur</label>
+                <input type="color" id="sp-text-color" value="#1e293b">
+              </div>
+              <div class="form-group">
+                <label for="sp-text-font">Police</label>
+                <select id="sp-text-font"></select>
+              </div>
+            </div>
+          </details>
+          <div class="form-group">
+            <label>Aperçu du bloc complet</label>
+            <div id="sp-block-preview" class="sp-block-preview"><span class="sp-preview-loading">Aperçu…</span></div>
+          </div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary btn-block">Enregistrer</button>
           </div>
@@ -848,11 +856,11 @@
   <script src="js/state.js?v=18"></script>
   <script src="js/server-sync.js?v=18"></script>
   <script src="js/markdown.js?v=18"></script>
-  <script src="js/companies.js?v=18"></script>
+  <script src="js/companies.js?v=19"></script>
   <script src="js/settings.js?v=18"></script>
   <script src="js/clients.js?v=18"></script>
   <script src="js/handwriting-synth.js?v=1"></script>
-  <script src="js/signatures.js?v=19"></script>
+  <script src="js/signatures.js?v=20"></script>
   <script src="js/editor.js?v=18"></script>
   <script src="js/pdf.js?v=18"></script>
   <script src="js/history.js?v=18"></script>

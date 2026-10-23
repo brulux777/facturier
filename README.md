@@ -12,7 +12,7 @@ Générateur de factures et devis professionnel, gratuit et open-source. Fonctio
 - **Cahier des charges** — Markdown optionnel avec 3 emplacements au choix : intégré à la facture, en annexe sur une page séparée du même PDF, ou dans un second PDF téléchargé à part
 - **Paiement en 3 fois** — activable/désactivable par document, échéancier mensuel automatique (montants + dates)
 - **Gestion clients** — Enregistrement et réutilisation des fiches clients
-- **Signature de documents** — Upload d'un PDF, placement visuel des signatures (clic sur l'aperçu), plusieurs signataires, profils réutilisables (écriture manuscrite **générée par IA** à partir du texte, ou dessin), bloc de signature modulaire (dessin, nom, phrase, date, lignes supplémentaires — toutes facultatives), choix de l'entreprise signataire, liste des documents signés avec re-téléchargement
+- **Signature de documents** — Upload d'un PDF, renommage du fichier signé, placement visuel des signatures : **commune à toutes les pages** (automatique, précis ou manuel) ou **autonome** sur certaines pages (blocs indépendants, plusieurs signatures différentes possibles). Profils réutilisables (écriture manuscrite **générée par IA** à partir du texte, ou dessin) avec **lignes de bloc facultatives en nombre libre** (manuscrites, mention ou texte, jeton `{date}`), liste des documents signés avec re-téléchargement
 - **PDF professionnel** — Génération et téléchargement de PDF conformes aux normes françaises
 - **Historique** — Recherche, filtrage, statut (brouillon/envoyée/payée), duplication
 - **Entreprises** — Une fiche par entité émettrice (adresse, SIRET, TVA, logo, banque, mentions légales, préfixes de numérotation)
@@ -93,19 +93,36 @@ entreprise, compteurs inclus.
 ### Signature de documents
 
 La vue **Signature** liste les documents signés (re-téléchargeables,
-supprimables). L'assistant **Signer un document** : upload du PDF
-(8 Mo max) → titre/type/date/description → entreprise signataire →
-signataires (profils réutilisables) → **contenu du bloc** (chaque
-ligne est facultative : dessin, nom en écriture manuscrite générée,
-phrase libre, date, fonction, entreprise, lignes supplémentaires en
-nombre libre) → placement visuel (automatique toutes pages, précis ou
-manuel), puis **Signer le document**. Le bloc est incrusté dans le
-PDF, téléchargé immédiatement et archivé dans la liste.
+supprimables). L'assistant **Signer un document** ne fait aucune
+édition du document : upload du PDF (8 Mo max) → renommage du fichier
+signé (pré-rempli) → signataires (profils réutilisables de la page
+Signataires) → placement visuel, puis **Signer le document**. Deux
+modes de placement :
+
+- **commune à toutes les pages**, avec 3 types : **automatique**
+  (position par défaut parmi bas/haut/bords/coins, blocs liés entre
+  les pages), **précis** (clic sur la 1ʳᵉ page reproduit sur toutes,
+  ajustements ensuite locaux) et **manuel** (positionnement page par
+  page) ;
+- **autonome** : chaque bloc est pleinement indépendant — plusieurs
+  signatures différentes, sur certaines pages seulement, autant de
+  fois que nécessaire.
+
+Chaque bloc reste ajustable (glisser, redimensionner, supprimer). Le
+PDF signé est téléchargé sous le nom choisi et archivé dans la liste.
+
+La page **Signataires** gère les fiches : nom, fonction, type de
+signature (dessin, ou nom en écriture manuscrite générée), « main »
+(graine, style, lisibilité, variante) et **lignes de bloc
+facultatives en nombre libre** — chacune manuscrite (IA), en mention
+(italique) ou en texte, `{date}` étant remplacé par la date du jour
+en toutes lettres. La fiche affiche un aperçu du bloc complet en
+direct.
 
 Chaque signataire possède sa « main » : un réseau de neurones
 (LSTM + attention, modèle de calligrapher.ai auto-hébergé) génère des
-traits d'écriture réalistes à partir du texte — nom, phrase, date ou
-lignes supplémentaires. La graine par signataire est stable (la même
+traits d'écriture réalistes à partir du texte — nom ou lignes du
+bloc. La graine par signataire est stable (la même
 personne écrit toujours de la même façon), le bouton **Nouvelle
 variante** explore d'autres façons d'écrire, et le style/lisibilité
 sont réglables. Si le moteur est indisponible, l'app retombe sur les
