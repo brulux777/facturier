@@ -1144,6 +1144,33 @@ body.login-page {
   font-size: 0.85rem;
   min-height: 1.1em;
 }
+.login-info {
+  color: #16a34a;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.login-links {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 14px;
+  font-size: 0.85rem;
+  color: var(--color-text-muted, #64748b);
+}
+.login-links a {
+  color: var(--color-primary, #2563eb);
+  text-decoration: none;
+  font-weight: 500;
+}
+.login-links a:hover {
+  text-decoration: underline;
+}
+.account-email {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  color: var(--color-text-muted, #64748b);
+  word-break: break-all;
+}
 .btn-block {
   width: 100%;
 }

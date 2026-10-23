@@ -4,20 +4,35 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Connexion — Facturier Pro</title>
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body class="login-page">
-  <form id="login-form" class="login-card">
+  <form id="auth-form" class="login-card" novalidate>
     <h2>Facturier Pro</h2>
-    <p class="login-hint">Cette instance synchronise vos données sur le serveur. Identifiez-vous pour y accéder.</p>
-    <label class="login-label">Email
-      <input type="email" id="login-email" required autocomplete="username">
-    </label>
-    <label class="login-label">Mot de passe
-      <input type="password" id="login-password" required autocomplete="current-password">
-    </label>
+    <p class="login-hint" id="auth-hint">Cette instance synchronise vos données sur le serveur. Identifiez-vous pour y accéder.</p>
+
+    <div id="auth-fields">
+      <label class="login-label" id="field-email-label">Email
+        <input type="email" id="auth-email" required autocomplete="username">
+      </label>
+      <label class="login-label" id="field-password-label">Mot de passe
+        <input type="password" id="auth-password" required autocomplete="current-password">
+      </label>
+      <label class="login-label" id="field-confirm-label" style="display:none;">Confirmer le mot de passe
+        <input type="password" id="auth-confirm" required autocomplete="new-password" style="display:none;">
+      </label>
+    </div>
+
     <div id="login-error" class="login-error"></div>
-    <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+    <div id="login-info" class="login-info"></div>
+
+    <button type="submit" id="auth-submit" class="btn btn-primary btn-block">Se connecter</button>
+
+    <div class="login-links" id="auth-links">
+      <a href="#" id="link-register">Créer un compte</a>
+      <span>·</span>
+      <a href="#" id="link-forgot">Mot de passe oublié</a>
+    </div>
   </form>
 
   <script>
@@ -31,45 +46,155 @@
         return;
       }
 
+      const params = new URLSearchParams(location.search);
+      const resetToken = params.get('reset');
+
       // Retour à la page demandée initialement (302 /login.html?next=...)
-      const next = new URLSearchParams(location.search).get('next');
+      const next = params.get('next');
       const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
 
-      // Déjà connecté : pas besoin du formulaire
-      const probe = await fetch('/api/state', { credentials: 'same-origin' });
-      if (probe.ok) {
-        location.replace(safeNext);
-        return;
+      // Déjà connecté : pas besoin du formulaire (sauf réinitialisation en cours)
+      if (!resetToken) {
+        const probe = await fetch('/api/state', { credentials: 'same-origin' });
+        if (probe.ok) {
+          location.replace(safeNext);
+          return;
+        }
       }
 
+      const form = document.getElementById('auth-form');
+      const hintEl = document.getElementById('auth-hint');
       const errEl = document.getElementById('login-error');
-      document.getElementById('login-form').addEventListener('submit', async (e) => {
+      const infoEl = document.getElementById('login-info');
+      const submitBtn = document.getElementById('auth-submit');
+      const emailEl = document.getElementById('auth-email');
+      const passwordEl = document.getElementById('auth-password');
+      const confirmLabel = document.getElementById('field-confirm-label');
+      const confirmEl = document.getElementById('auth-confirm');
+      const linksEl = document.getElementById('auth-links');
+
+      // --- modes : login | register | forgot | reset ---
+      let mode = resetToken ? 'reset' : 'login';
+
+      function setMode(m) {
+        mode = m;
+        errEl.textContent = '';
+        infoEl.textContent = '';
+        confirmLabel.style.display = (m === 'register' || m === 'reset') ? '' : 'none';
+        confirmEl.style.display = (m === 'register' || m === 'reset') ? '' : 'none';
+        emailEl.parentElement.style.display = m === 'reset' ? 'none' : '';
+        passwordEl.parentElement.style.display = m === 'forgot' ? 'none' : '';
+        passwordEl.setAttribute('autocomplete',
+          m === 'login' ? 'current-password' : 'new-password');
+        linksEl.style.display = m === 'reset' ? 'none' : '';
+        if (m === 'login') {
+          hintEl.textContent = 'Cette instance synchronise vos données sur le serveur. Identifiez-vous pour y accéder.';
+          submitBtn.textContent = 'Se connecter';
+        } else if (m === 'register') {
+          hintEl.textContent = 'Compte réservé aux adresses @hoplacollect.fr, @eldcontrole.fr et @controleweb.fr.';
+          submitBtn.textContent = 'Créer mon compte';
+        } else if (m === 'forgot') {
+          hintEl.textContent = 'Indiquez votre email : vous recevrez un lien de réinitialisation (valable 1 heure).';
+          submitBtn.textContent = 'Envoyer le lien';
+        } else {
+          hintEl.textContent = 'Choisissez un nouveau mot de passe pour votre compte.';
+          submitBtn.textContent = 'Enregistrer le mot de passe';
+        }
+        (m === 'reset' ? passwordEl : emailEl).focus();
+      }
+
+      function busy(b) {
+        submitBtn.disabled = b;
+      }
+
+      async function api(path, body) {
+        const r = await fetch(path, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const j = await r.json().catch(() => ({}));
+        return { ok: r.ok, status: r.status, j };
+      }
+
+      form.addEventListener('submit', async (e) => {
         e.preventDefault();
         errEl.textContent = '';
-        document.querySelector('#login-form button[type=submit]').disabled = true;
+        infoEl.textContent = '';
+        busy(true);
         try {
-          const r = await fetch('/api/login', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: document.getElementById('login-email').value.trim(),
-              password: document.getElementById('login-password').value,
-            }),
-          });
-          const j = await r.json().catch(() => ({}));
-          if (r.ok) {
-            location.replace(safeNext);
-            return;
+          if (mode === 'login') {
+            const { ok, j } = await api('/api/login', {
+              email: emailEl.value.trim(),
+              password: passwordEl.value,
+            });
+            if (ok) {
+              location.replace(safeNext);
+              return;
+            }
+            errEl.textContent = j.error || 'Identifiants incorrects';
+          } else if (mode === 'register') {
+            if (passwordEl.value !== confirmEl.value) {
+              errEl.textContent = 'Les deux mots de passe ne correspondent pas';
+              busy(false);
+              return;
+            }
+            const { ok, j } = await api('/api/register', {
+              email: emailEl.value.trim(),
+              password: passwordEl.value,
+            });
+            if (ok) {
+              location.replace(safeNext);
+              return;
+            }
+            errEl.textContent = j.error || 'Création impossible';
+          } else if (mode === 'forgot') {
+            const { ok, j } = await api('/api/password/forgot', { email: emailEl.value.trim() });
+            if (ok) {
+              infoEl.textContent = 'Si un compte existe pour cet email, un lien de réinitialisation vient d\u2019être envoyé (pensez à vos indésirables).';
+              emailEl.value = '';
+            } else {
+              errEl.textContent = j.error || 'Demande impossible';
+            }
+          } else { // reset
+            if (passwordEl.value !== confirmEl.value) {
+              errEl.textContent = 'Les deux mots de passe ne correspondent pas';
+              busy(false);
+              return;
+            }
+            const { ok, j } = await api('/api/password/reset', {
+              token: resetToken,
+              password: passwordEl.value,
+            });
+            if (ok) {
+              infoEl.textContent = 'Mot de passe modifié — vous pouvez vous connecter.';
+              passwordEl.value = '';
+              confirmEl.value = '';
+              setTimeout(() => {
+                history.replaceState(null, '', '/login.html');
+                setMode('login');
+              }, 1500);
+            } else {
+              errEl.textContent = j.error || 'Lien invalide ou expiré';
+            }
           }
-          errEl.textContent = j.error || 'Identifiants incorrects';
         } catch (err) {
           errEl.textContent = 'Serveur injoignable';
         }
-        document.querySelector('#login-form button[type=submit]').disabled = false;
+        busy(false);
       });
 
-      document.getElementById('login-email').focus();
+      document.getElementById('link-register').addEventListener('click', (e) => {
+        e.preventDefault();
+        setMode(mode === 'register' ? 'login' : 'register');
+      });
+      document.getElementById('link-forgot').addEventListener('click', (e) => {
+        e.preventDefault();
+        setMode(mode === 'forgot' ? 'login' : 'forgot');
+      });
+
+      setMode(mode);
     })();
   </script>
 </body>

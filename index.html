@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
   <div id="app">
@@ -318,6 +318,10 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Exporter
             </button>
+            <button type="button" id="btn-account" class="btn btn-sm btn-outline" style="display:none;" title="Changer mon mot de passe">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Mon compte
+            </button>
             <button type="button" id="btn-logout" class="btn btn-sm btn-outline" style="display:none;" title="Se déconnecter du serveur">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
               Déconnexion
@@ -500,6 +504,35 @@
     </div>
   </div>
 
+  <!-- ========== ACCOUNT MODAL (changement de mot de passe) ========== -->
+  <div id="account-modal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content" style="max-width:420px;">
+      <div class="modal-header">
+        <h3>Mon compte</h3>
+        <div class="modal-actions">
+          <button type="button" id="account-close" class="btn btn-outline btn-sm">Fermer</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p class="account-email">Connecté : <strong id="account-email">…</strong></p>
+        <form id="account-password-form">
+          <label class="login-label">Mot de passe actuel
+            <input type="password" id="account-current" required autocomplete="current-password">
+          </label>
+          <label class="login-label">Nouveau mot de passe (8 caractères min.)
+            <input type="password" id="account-new" required minlength="8" autocomplete="new-password">
+          </label>
+          <label class="login-label">Confirmer le nouveau mot de passe
+            <input type="password" id="account-confirm" required minlength="8" autocomplete="new-password">
+          </label>
+          <div id="account-status" class="login-error"></div>
+          <button type="submit" class="btn btn-primary btn-block">Changer mon mot de passe</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- ========== TOAST ========== -->
   <div id="toast-container"></div>
 
@@ -515,14 +548,14 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
-  <script src="js/state.js?v=13"></script>
-  <script src="js/server-sync.js?v=13"></script>
-  <script src="js/markdown.js?v=13"></script>
-  <script src="js/settings.js?v=13"></script>
-  <script src="js/clients.js?v=13"></script>
-  <script src="js/editor.js?v=13"></script>
-  <script src="js/pdf.js?v=13"></script>
-  <script src="js/history.js?v=13"></script>
-  <script src="js/app.js?v=13"></script>
+  <script src="js/state.js?v=14"></script>
+  <script src="js/server-sync.js?v=14"></script>
+  <script src="js/markdown.js?v=14"></script>
+  <script src="js/settings.js?v=14"></script>
+  <script src="js/clients.js?v=14"></script>
+  <script src="js/editor.js?v=14"></script>
+  <script src="js/pdf.js?v=14"></script>
+  <script src="js/history.js?v=14"></script>
+  <script src="js/app.js?v=14"></script>
 </body>
 </html>

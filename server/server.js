@@ -3,20 +3,34 @@
    ------------------------------------------------------------
    - Sert les fichiers statiques (index.html, login.html, js/)
    - API de synchronisation de l'état (settings/clients/invoices)
-     stocké dans PostgreSQL (conteneur `db` du docker-compose)
-   - Auth : email + mot de passe (hash SHA-256 en variable d'env),
+     stocké dans PostgreSQL (conteneur `db` du docker-compose,
+     base dédiée au facturier — indépendante des autres apps)
+   - Auth multi-comptes : comptes en table `users`, email sur
+     domaines autorisés (ALLOWED_EMAIL_DOMAINS), mots de passe
+     scrypt (compte unique historique AUTH_* migré au vol),
      session par cookie signé HMAC, tentatives limitées par IP.
+     Tous les comptes partagent les mêmes données (pas de
+     cloisonnement par utilisateur).
+   - Réinitialisation de mot de passe par email (table
+     `password_resets`, jeton 1 h à usage unique) via SMTP.
    - Pages app protégées : 302 vers /login.html?next=... si non
      connecté (l'app n'est pas servie avant authentification).
    ------------------------------------------------------------
    Variables d'environnement :
-     PORT                  (déf. 3000)
-     DATA_FILE             (déf. /data/state.json — migration initiale)
-     AUTH_EMAIL            email de connexion
-     AUTH_PASSWORD_SHA256  SHA-256 hex du mot de passe
-     SESSION_SECRET        secret HMAC long et aléatoire
-     COOKIE_SECURE         1 = cookie Secure (HTTPS)
-     SESSION_TTL_DAYS      durée de session (déf. 30)
+     PORT                       (déf. 3000)
+     DATA_FILE                  (déf. /data/state.json — migration initiale)
+     SESSION_SECRET             secret HMAC long et aléatoire (requis)
+     COOKIE_SECURE              1 = cookie Secure (HTTPS)
+     SESSION_TTL_DAYS           durée de session (déf. 30)
+     ALLOWED_EMAIL_DOMAINS      domaines de connexion séparés par des
+                                virgules (déf. hoplacollect.fr,
+                                eldcontrole.fr,controleweb.fr)
+     APP_URL                    URL publique (déf. déduite de
+                                X-Forwarded-Host/Proto) — liens des mails
+     AUTH_EMAIL,                compte unique historique : sert uniquement
+     AUTH_PASSWORD_SHA256       de compte initial si `users` est vide
+     SMTP_HOST/PORT/USER/PASS   envoi des mails (465 SSL)
+     SMTP_FROM                  expéditeur (déf. SMTP_USER)
      PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD  (PostgreSQL)
    ============================================================ */
 'use strict';
@@ -25,19 +39,38 @@ const http = require('http');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const nodemailer = require('nodemailer');
 const { Pool } = require('pg');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const DATA_FILE = process.env.DATA_FILE || '/data/state.json';
-const AUTH_EMAIL = (process.env.AUTH_EMAIL || '').trim().toLowerCase();
-const AUTH_PASSWORD_SHA256 = (process.env.AUTH_PASSWORD_SHA256 || '').trim().toLowerCase();
 const SESSION_SECRET = process.env.SESSION_SECRET || '';
 const COOKIE_SECURE = process.env.COOKIE_SECURE === '1';
 const SESSION_TTL_DAYS = parseInt(process.env.SESSION_TTL_DAYS || '30', 10);
 const MAX_BODY_BYTES = 15 * 1024 * 1024; // 15 Mo
+const RESET_TTL_MS = 60 * 60 * 1000; // jeton de reset valable 1 h
 
-if (!AUTH_EMAIL || !AUTH_PASSWORD_SHA256 || !SESSION_SECRET) {
-  console.error('[facturier] Variables AUTH_EMAIL, AUTH_PASSWORD_SHA256 et SESSION_SECRET requises.');
+// Compte unique historique (variables d'env) : uniquement pour amorcer
+// la table `users` au premier démarrage, jamais vérifié ensuite.
+const LEGACY_EMAIL = (process.env.AUTH_EMAIL || '').trim().toLowerCase();
+const LEGACY_PASSWORD_SHA256 = (process.env.AUTH_PASSWORD_SHA256 || '').trim().toLowerCase();
+
+const ALLOWED_EMAIL_DOMAINS = (process.env.ALLOWED_EMAIL_DOMAINS || 'hoplacollect.fr,eldcontrole.fr,controleweb.fr')
+  .split(',').map((d) => d.trim().toLowerCase()).filter(Boolean);
+
+const SMTP_HOST = process.env.SMTP_HOST || '';
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465', 10);
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
+const APP_URL = (process.env.APP_URL || '').replace(/\/+$/, '');
+
+if (!SESSION_SECRET) {
+  console.error('[facturier] Variable SESSION_SECRET requise.');
+  process.exit(1);
+}
+if (ALLOWED_EMAIL_DOMAINS.length === 0) {
+  console.error('[facturier] ALLOWED_EMAIL_DOMAINS vide.');
   process.exit(1);
 }
 
@@ -61,33 +94,108 @@ function sign(payload) {
   return crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('hex');
 }
 
-function makeSessionValue() {
+function makeSessionValue(email) {
   const exp = Date.now() + SESSION_TTL_DAYS * 24 * 3600 * 1000;
-  const payload = `${AUTH_EMAIL}.${exp}`;
+  const payload = `${email}.${exp}`;
   return `${payload}.${sign(payload)}`;
 }
 
-function isValidSession(cookieHeader) {
-  if (!cookieHeader) return false;
+// → email de session si le cookie est valide et non expiré, sinon null
+function sessionEmail(req) {
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) return null;
   const m = /(?:^|;\s*)facturier_session=([^;]+)/.exec(cookieHeader);
-  if (!m) return false;
+  if (!m) return null;
   let value;
   try {
     value = decodeURIComponent(m[1]);
   } catch (e) {
-    return false;
+    return null;
   }
   // Format : <email>.<expMs>.<hmac> — l'email pouvant contenir des points,
   // on parse depuis la droite (sig = dernier champ, exp = avant-dernier).
   const lastDot = value.lastIndexOf('.');
   const secondLastDot = value.lastIndexOf('.', lastDot - 1);
-  if (lastDot < 0 || secondLastDot < 0) return false;
+  if (lastDot < 0 || secondLastDot < 0) return null;
   const email = value.slice(0, secondLastDot);
   const exp = value.slice(secondLastDot + 1, lastDot);
   const sig = value.slice(lastDot + 1);
-  if (!/^\d+$/.test(exp)) return false;
-  if (!safeEqual(sign(`${email}.${exp}`), sig)) return false;
-  return parseInt(exp, 10) > Date.now();
+  if (!/^\d+$/.test(exp)) return null;
+  if (!safeEqual(sign(`${email}.${exp}`), sig)) return null;
+  if (parseInt(exp, 10) <= Date.now()) return null;
+  return email;
+}
+
+function sessionCookieHeader(email) {
+  const cookie = [
+    `facturier_session=${encodeURIComponent(makeSessionValue(email))}`,
+    'Path=/', 'HttpOnly', 'SameSite=Lax',
+    `Max-Age=${SESSION_TTL_DAYS * 24 * 3600}`,
+  ];
+  if (COOKIE_SECURE) cookie.push('Secure');
+  return cookie.join('; ');
+}
+
+// ---------- mots de passe (scrypt ; sha256 simple = ancien compte unique) ----------
+
+const scryptAsync = (password, salt, keylen) =>
+  new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, keylen, (err, key) => (err ? reject(err) : resolve(key)));
+  });
+
+async function hashPassword(password) {
+  const salt = crypto.randomBytes(16);
+  const key = await scryptAsync(password, salt, 32);
+  return `scrypt$${salt.toString('hex')}$${key.toString('hex')}`;
+}
+
+async function verifyPassword(password, stored) {
+  if (stored.startsWith('scrypt$')) {
+    const parts = stored.split('$'); // scrypt, saltHex, keyHex
+    if (parts.length !== 3) return false;
+    const key = await scryptAsync(password, Buffer.from(parts[1], 'hex'), 32);
+    return safeEqual(key.toString('hex'), parts[2]);
+  }
+  // Ancien format (compte unique via variable d'env) : sha256 simple
+  return safeEqual(sha256hex(password), stored);
+}
+
+function emailAllowed(email) {
+  const domain = String(email).split('@')[1] || '';
+  return /^[^@\s]+@[^@\s]+$/.test(email) && ALLOWED_EMAIL_DOMAINS.includes(domain.toLowerCase());
+}
+
+function passwordOk(password) {
+  return typeof password === 'string' && password.length >= 8 && password.length <= 200;
+}
+
+// ---------- envoi email (SMTP) ----------
+
+let mailTransport = null;
+
+function sendMail(options) {
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+    console.error('[facturier] SMTP non configuré (SMTP_HOST/USER/PASS) — mail non envoyé');
+    return Promise.reject(new Error('SMTP non configuré'));
+  }
+  if (!mailTransport) {
+    mailTransport = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_PORT === 465, // 465 = SSL implicite, 587 = STARTTLS
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+    });
+  }
+  return mailTransport.sendMail(Object.assign({ from: SMTP_FROM }, options));
+}
+
+// URL publique de l'instance (liens des emails) : APP_URL en priorité,
+// sinon X-Forwarded-Host/Proto fournis par le nginx du VPS.
+function publicBaseUrl(req) {
+  if (APP_URL) return APP_URL;
+  const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
+  const proto = req.headers['x-forwarded-proto'] || 'http';
+  return `${proto}://${host}`;
 }
 
 // ---------- rate-limit login (mémoire, 10 essais / 15 min / IP) ----------
@@ -150,7 +258,32 @@ async function initDb() {
       id   TEXT PRIMARY KEY,
       data JSONB NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS users (
+      id            SERIAL PRIMARY KEY,
+      email         TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS password_resets (
+      token_hash TEXT PRIMARY KEY,
+      user_id    INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at    TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets (user_id);
   `);
+
+  // Amorçage : compte unique historique (AUTH_* dans .env) → table users.
+  // Son hash sha256 est vérifié puis migré en scrypt à la première connexion.
+  const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM users');
+  if (rows[0].n === 0 && LEGACY_EMAIL && LEGACY_PASSWORD_SHA256) {
+    await pool.query(
+      'INSERT INTO users (email, password_hash) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING',
+      [LEGACY_EMAIL, LEGACY_PASSWORD_SHA256]
+    );
+    console.log(`[facturier] Compte initial importé : ${LEGACY_EMAIL}`);
+  }
 
   await migrateFromJsonFile();
 }
@@ -349,23 +482,118 @@ const server = http.createServer(async (req, res) => {
       const body = await readJsonBody(req);
       const email = String((body && body.email) || '').trim().toLowerCase();
       const password = String((body && body.password) || '');
-      if (safeEqual(sha256hex(email), sha256hex(AUTH_EMAIL)) &&
-          safeEqual(sha256hex(password), AUTH_PASSWORD_SHA256)) {
+      const { rows } = await pool.query('SELECT id, password_hash FROM users WHERE email = $1', [email]);
+      const user = rows[0];
+      if (user && await verifyPassword(password, user.password_hash)) {
         loginAttempts.delete(clientIp(req));
-        const cookie = [
-          `facturier_session=${encodeURIComponent(makeSessionValue())}`,
-          'Path=/', 'HttpOnly', 'SameSite=Lax',
-          `Max-Age=${SESSION_TTL_DAYS * 24 * 3600}`,
-        ];
-        if (COOKIE_SECURE) cookie.push('Secure');
+        // Ancien hash sha256 (compte initial importé) → migré en scrypt
+        if (!user.password_hash.startsWith('scrypt$')) {
+          const upgraded = await hashPassword(password);
+          await pool.query('UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1', [user.id, upgraded]);
+        }
         return sendJson(res, 200, { ok: true }, {
-          'Set-Cookie': cookie.join('; '),
+          'Set-Cookie': sessionCookieHeader(email),
           // Purge le cache navigateur de l'origine (ex : vieilles versions
           // de l'app cachées par une version précédente du serveur)
           'Clear-Site-Data': '"cache"',
         });
       }
       return sendJson(res, 401, { error: 'Identifiants incorrects' });
+    }
+
+    // --- création de compte (public, domaines autorisés uniquement) ---
+    if (pathname === '/api/register' && req.method === 'POST') {
+      if (!loginAllowed(clientIp(req))) {
+        return sendJson(res, 429, { error: 'Trop de tentatives, réessayez dans 15 minutes' });
+      }
+      const body = await readJsonBody(req);
+      const email = String((body && body.email) || '').trim().toLowerCase();
+      const password = String((body && body.password) || '');
+      if (!emailAllowed(email)) {
+        return sendJson(res, 400, {
+          error: `Adresse non autorisée — domaines acceptés : ${ALLOWED_EMAIL_DOMAINS.join(', ')}`,
+        });
+      }
+      if (!passwordOk(password)) {
+        return sendJson(res, 400, { error: 'Mot de passe : 8 caractères minimum' });
+      }
+      const hash = await hashPassword(password);
+      const { rowCount } = await pool.query(
+        'INSERT INTO users (email, password_hash) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING',
+        [email, hash]
+      );
+      if (rowCount === 0) {
+        return sendJson(res, 409, { error: 'Un compte existe déjà pour cet email' });
+      }
+      loginAttempts.delete(clientIp(req));
+      return sendJson(res, 201, { ok: true }, { 'Set-Cookie': sessionCookieHeader(email) });
+    }
+
+    // --- mot de passe oublié (public — réponse identique que le compte existe ou non) ---
+    if (pathname === '/api/password/forgot' && req.method === 'POST') {
+      if (!loginAllowed(clientIp(req))) {
+        return sendJson(res, 429, { error: 'Trop de tentatives, réessayez dans 15 minutes' });
+      }
+      const body = await readJsonBody(req);
+      const email = String((body && body.email) || '').trim().toLowerCase();
+      const { rows } = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+      if (rows[0]) {
+        // Un seul jeton actif par utilisateur ; les anciens sont purgés
+        const token = crypto.randomBytes(32).toString('hex');
+        await pool.query('DELETE FROM password_resets WHERE user_id = $1', [rows[0].id]);
+        await pool.query(
+          'INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES ($1, $2, now() + interval \'1 hour\')',
+          [sha256hex(token), rows[0].id]
+        );
+        const link = `${publicBaseUrl(req)}/login.html?reset=${token}`;
+        try {
+          await sendMail({
+            to: email,
+            subject: 'Réinitialisation de votre mot de passe — Facturier',
+            text:
+              'Bonjour,\n\n' +
+              'Une réinitialisation de votre mot de passe Facturier a été demandée.\n\n' +
+              `Ouvrez ce lien (valable 1 heure) pour choisir un nouveau mot de passe :\n${link}\n\n` +
+              "Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet email.\n",
+          });
+        } catch (e) {
+          console.error('[facturier] Envoi email reset impossible:', e.message);
+        }
+      }
+      return sendJson(res, 200, { ok: true });
+    }
+
+    // --- réinitialisation via jeton (public) ---
+    if (pathname === '/api/password/reset' && req.method === 'POST') {
+      if (!loginAllowed(clientIp(req))) {
+        return sendJson(res, 429, { error: 'Trop de tentatives, réessayez dans 15 minutes' });
+      }
+      const body = await readJsonBody(req);
+      const token = String((body && body.token) || '');
+      const password = String((body && body.password) || '');
+      if (!/^[0-9a-f]{64}$/.test(token) || !passwordOk(password)) {
+        return sendJson(res, 400, { error: 'Lien invalide ou mot de passe trop court (8 caractères minimum)' });
+      }
+      const { rows } = await pool.query(
+        `SELECT id, user_id FROM password_resets
+         WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()`,
+        [sha256hex(token)]
+      );
+      const reset = rows[0];
+      if (!reset) {
+        return sendJson(res, 400, { error: 'Lien invalide ou expiré — refaites une demande de réinitialisation' });
+      }
+      const hash = await hashPassword(password);
+      await pool.query('BEGIN');
+      try {
+        await pool.query('UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1', [reset.user_id, hash]);
+        await pool.query('UPDATE password_resets SET used_at = now() WHERE id = $1', [reset.id]);
+        await pool.query('COMMIT');
+      } catch (e) {
+        await pool.query('ROLLBACK').catch(() => {});
+        throw e;
+      }
+      return sendJson(res, 200, { ok: true });
     }
 
     // --- logout ---
@@ -376,8 +604,28 @@ const server = http.createServer(async (req, res) => {
 
     // --- tout le reste de l'API nécessite une session valide ---
     if (pathname.startsWith('/api/')) {
-      if (!isValidSession(req.headers.cookie)) {
+      const email = sessionEmail(req);
+      if (!email) {
         return sendJson(res, 401, { error: 'Non authentifié' });
+      }
+      if (pathname === '/api/me' && req.method === 'GET') {
+        return sendJson(res, 200, { email });
+      }
+      if (pathname === '/api/password/change' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const current = String((body && body.current) || '');
+        const next = String((body && body.next) || '');
+        if (!passwordOk(next)) {
+          return sendJson(res, 400, { error: 'Nouveau mot de passe : 8 caractères minimum' });
+        }
+        const { rows } = await pool.query('SELECT id, password_hash FROM users WHERE email = $1', [email]);
+        const user = rows[0];
+        if (!user || !await verifyPassword(current, user.password_hash)) {
+          return sendJson(res, 401, { error: 'Mot de passe actuel incorrect' });
+        }
+        const hash = await hashPassword(next);
+        await pool.query('UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1', [user.id, hash]);
+        return sendJson(res, 200, { ok: true });
       }
       if (pathname === '/api/state' && req.method === 'GET') {
         const st = await readStateFromDb();
@@ -400,7 +648,7 @@ const server = http.createServer(async (req, res) => {
       // Les assets (css/js) et la page login restent publics ; l'API est
       // déjà protégée plus haut. Un visiteur non connecté ne reçoit jamais
       // l'app, juste la page de connexion.
-      const authed = isValidSession(req.headers.cookie);
+      const authed = !!sessionEmail(req);
       const ext = path.extname(pathname);
       const isLoginPage = pathname === '/login.html';
       const isAsset = !!ext && pathname !== '/index.html';

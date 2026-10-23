@@ -92,8 +92,30 @@ function init() {
     });
   }
 
-  // Logout (mode serveur uniquement)
+  // Logout + compte (mode serveur uniquement)
   document.getElementById('btn-logout').addEventListener('click', doLogout);
+  document.getElementById('btn-account').addEventListener('click', openAccountModal);
+  document.getElementById('account-close').addEventListener('click', closeAccountModal);
+  document.querySelector('#account-modal .modal-overlay').addEventListener('click', closeAccountModal);
+  document.getElementById('account-password-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const statusEl = document.getElementById('account-status');
+    const current = document.getElementById('account-current').value;
+    const next = document.getElementById('account-new').value;
+    const confirm = document.getElementById('account-confirm').value;
+    statusEl.textContent = '';
+    if (next !== confirm) {
+      statusEl.textContent = 'Les deux mots de passe ne correspondent pas';
+      return;
+    }
+    const result = await changePassword(current, next);
+    if (result === 'ok') {
+      closeAccountModal();
+      showToast('Mot de passe modifié');
+    } else if (result !== 'session') {
+      statusEl.textContent = result;
+    }
+  });
 
   // Routing : URL initiale (/parametres, /clients, /historique) + bouton retour
   const initialView = PATH_VIEWS[location.pathname] || 'editor';

@@ -36,6 +36,53 @@ async function doLogout() {
   location.replace('/login.html');
 }
 
+// ---------- Compte : changement de mot de passe ----------
+
+function setServerButtons(visible) {
+  document.getElementById('btn-logout').style.display = visible ? '' : 'none';
+  const accountBtn = document.getElementById('btn-account');
+  if (accountBtn) accountBtn.style.display = visible ? '' : 'none';
+}
+
+async function openAccountModal() {
+  const emailEl = document.getElementById('account-email');
+  const statusEl = document.getElementById('account-status');
+  emailEl.textContent = '…';
+  statusEl.textContent = '';
+  document.getElementById('account-modal').classList.add('active');
+  try {
+    const r = await fetch('/api/me', { credentials: 'same-origin' });
+    if (r.status === 401) return redirectToLogin();
+    const j = await r.json();
+    emailEl.textContent = j.email || '?';
+  } catch (e) {
+    emailEl.textContent = 'inconnu (serveur injoignable)';
+  }
+}
+
+function closeAccountModal() {
+  document.getElementById('account-modal').classList.remove('active');
+  ['account-current', 'account-new', 'account-confirm'].forEach((id) => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('account-status').textContent = '';
+}
+
+async function changePassword(current, next) {
+  const r = await fetch('/api/password/change', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ current, next }),
+  });
+  if (r.status === 401) {
+    redirectToLogin();
+    return 'session';
+  }
+  const j = await r.json().catch(() => ({}));
+  return r.ok ? 'ok' : (j.error || 'Changement impossible');
+}
+
 // ---------- État ----------
 
 async function loadServerState() {
@@ -84,7 +131,7 @@ function scheduleServerSync(delay = 400) {
  */
 async function syncBootstrap() {
   await detectServerMode();
-  document.getElementById('btn-logout').style.display = SERVER_MODE ? '' : 'none';
+  setServerButtons(SERVER_MODE);
 
   if (!SERVER_MODE) {
     loadState(); // mode local (GitHub Pages / fichier)
@@ -99,7 +146,7 @@ async function syncBootstrap() {
     showToast('Serveur injoignable — mode local', 'error');
     loadState();
     SERVER_MODE = false;
-    document.getElementById('btn-logout').style.display = 'none';
+    setServerButtons(false);
     return;
   }
 
