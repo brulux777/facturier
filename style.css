@@ -40,6 +40,9 @@ html {
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Pas d'effet élastique quand on scrolle au-delà du haut (ou du bas)
+     de la page : le contenu ne doit pas bouger une fois la limite atteinte. */
+  overscroll-behavior: none;
 }
 
 body {
@@ -653,6 +656,12 @@ body {
   padding: 30px;
 }
 
+/* Verrouille le scroll de la page derrière une modale ouverte : scroller
+   en haut/bas du contenu ne doit pas faire bouger la page en arrière-plan. */
+body:has(.modal.active) {
+  overflow: hidden;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -694,6 +703,9 @@ body {
 .modal-body {
   padding: 20px;
   overflow-y: auto;
+  /* Empêche le scroll de se propager à la page derrière quand on est
+      déjà en haut (ou en bas) du contenu de la modale. */
+  overscroll-behavior: contain;
   flex: 1;
 }
 
@@ -1582,6 +1594,293 @@ body.login-page {
   .sig-signer-config-fields,
   .sig-style-fields {
     grid-template-columns: 1fr;
+  }
+}
+
+/* --- assistant : 2 colonnes (paramètres à gauche, visionneuse à droite) --- */
+
+/* Conteneur élargi quand l'assistant de signature est affiché */
+.app-main.sig-wide {
+  max-width: 1560px;
+}
+
+/* La vue occupe exactement la hauteur utile : la page ne défile jamais,
+   seule la visionneuse (et au pire la colonne de réglages) défile. */
+#view-signatureNew.active {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 108px); /* en-tête 60px + marges 2 × 24px */
+}
+
+.sig-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(350px, 440px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+
+/*
+ * Colonne gauche : compacte pour que tous les réglages tiennent à l'écran.
+ * Défilement de secours uniquement si le contenu dépasse vraiment la hauteur
+ * (par ex. beaucoup de signataires) — normalement tout est visible d'un coup.
+ */
+.sig-editor-left {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding-right: 2px;
+}
+
+/* actions principales dans l'en-tête : toujours visibles, la colonne
+   de réglages reste dédiée aux paramètres */
+#view-signatureNew .view-header {
+  margin-bottom: 6px;
+}
+
+#view-signatureNew .view-header h2 {
+  font-size: 1.05rem;
+}
+
+#view-signatureNew .sig-wizard-actions .btn {
+  padding: 7px 12px;
+  font-size: 0.82rem;
+}
+
+#view-signatureNew .card {
+  margin-bottom: 6px;
+}
+
+#view-signatureNew .card-header {
+  padding: 6px 10px;
+}
+
+#view-signatureNew .card-header h3 {
+  font-size: 0.85rem;
+}
+
+#view-signatureNew .card-body {
+  padding: 8px 10px;
+}
+
+#view-signatureNew .form-row {
+  gap: 8px;
+}
+
+#view-signatureNew .form-group,
+#view-signatureNew .form-row .form-group {
+  margin-bottom: 6px;
+}
+
+#view-signatureNew .form-group label {
+  margin-bottom: 2px;
+}
+
+#view-signatureNew .form-group input,
+#view-signatureNew .form-group select,
+#view-signatureNew .form-group textarea {
+  padding: 5px 9px;
+  font-size: 0.82rem;
+}
+
+#view-signatureNew .form-hint {
+  font-size: 0.7rem;
+  line-height: 1.35;
+  margin-top: 2px;
+  padding-left: 0;
+}
+
+#view-signatureNew .md-dropzone {
+  padding: 10px 8px;
+  margin-bottom: 6px;
+}
+
+#view-signatureNew .md-dropzone svg {
+  width: 16px;
+  height: 16px;
+}
+
+#view-signatureNew .sig-file-info {
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+}
+
+#view-signatureNew .sig-file-info > svg {
+  width: 16px;
+  height: 16px;
+}
+
+#view-signatureNew .sig-file-info-text strong {
+  font-size: 0.8rem;
+}
+
+#view-signatureNew .sig-file-info-text small {
+  font-size: 0.68rem;
+}
+
+#view-signatureNew .sig-chips {
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+#view-signatureNew .signer-chip {
+  padding: 4px 10px;
+  font-size: 0.78rem;
+}
+
+/* mode + position empilés dans la colonne étroite ;
+   les 3 modes tiennent sur une ligne */
+#view-signatureNew .sig-place-row {
+  grid-template-columns: 1fr;
+}
+
+#view-signatureNew .radio-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+#view-signatureNew .radio-pill {
+  justify-content: center;
+  padding: 5px 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* config par signataire : compacte */
+#view-signatureNew .sig-signers-config {
+  gap: 8px;
+  margin-top: 6px;
+}
+
+#view-signatureNew .sig-signer-config {
+  padding: 6px 8px;
+}
+
+#view-signatureNew .sig-signer-config-name {
+  font-size: 0.82rem;
+  margin-bottom: 4px;
+}
+
+#view-signatureNew .sig-signer-config-fields {
+  gap: 4px 6px;
+}
+
+#view-signatureNew .sig-signer-config-fields label {
+  font-size: 0.7rem;
+  gap: 2px;
+}
+
+#view-signatureNew .sig-signer-config-fields select,
+#view-signatureNew .sig-signer-config-fields input {
+  padding: 4px 7px;
+  font-size: 0.78rem;
+}
+
+#view-signatureNew .sig-signer-config-fields input[type="color"] {
+  height: 24px;
+  padding: 2px 4px;
+}
+
+/* réglages texte du bloc : repliables pour garder la colonne compacte */
+#view-signatureNew .sig-style-details summary {
+  list-style: none;
+  cursor: pointer;
+  margin-top: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+#view-signatureNew .sig-style-details summary::-webkit-details-marker {
+  display: none;
+}
+
+#view-signatureNew .sig-style-details summary::before {
+  content: '▸ ';
+  display: inline-block;
+  transition: transform var(--transition);
+}
+
+#view-signatureNew .sig-style-details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+#view-signatureNew .sig-style-details .sig-style-fields {
+  margin-top: 4px;
+}
+
+#view-signatureNew .sig-status-line {
+  margin-top: 1px;
+  margin-bottom: 1px;
+  font-size: 0.7rem;
+}
+
+/* Colonne droite : visionneuse, seule zone défilante de l'assistant */
+.sig-editor-right {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sig-viewer-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+}
+
+.sig-viewer-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.sig-viewer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px 16px 16px; /* 24px en haut : place pour l'étiquette « Page 1 » */
+  background: var(--color-bg);
+}
+
+.sig-viewer-body .sig-pages {
+  padding-bottom: 4px;
+}
+
+@media (max-width: 1100px) {
+  #view-signatureNew.active {
+    display: block;
+    height: auto;
+  }
+
+  .sig-editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sig-editor-left {
+    overflow-y: visible;
+  }
+
+  .sig-editor-right {
+    position: static;
+    height: auto;
+  }
+
+  .sig-viewer-card {
+    height: 75vh;
+    flex: none;
   }
 }
 

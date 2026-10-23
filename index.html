@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Caveat:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Parisienne&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=17">
+  <link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
   <div id="app">
@@ -343,7 +343,18 @@
       <section id="view-signatureNew" class="view">
         <div class="view-header">
           <h2>Signer un document</h2>
+          <div class="view-actions sig-wizard-actions">
+            <button type="button" id="btn-sig-cancel" class="btn btn-outline btn-sm">Annuler</button>
+            <button type="button" id="btn-sig-restart" class="btn btn-outline btn-sm">Recommencer</button>
+            <button type="button" id="btn-sign-doc" class="btn btn-primary btn-sm" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+              Signer le document
+            </button>
+          </div>
         </div>
+
+        <div class="sig-editor-layout">
+        <div class="sig-editor-left">
 
         <!-- 1. Document -->
         <div class="card">
@@ -388,39 +399,28 @@
             </div>
             <div class="form-group">
               <label for="sig-description">Quel est ce document ? (description libre)</label>
-              <textarea id="sig-description" rows="2" placeholder="Ex : Convention de partenariat pour la saison 2026, signée entre les deux parties."></textarea>
+              <textarea id="sig-description" rows="1" placeholder="Ex : Convention de partenariat pour la saison 2026, signée entre les deux parties."></textarea>
             </div>
           </div>
         </div>
 
-        <!-- 2. Entreprise -->
+        <!-- 2. Signataires (entreprise + signataires) -->
         <div class="card">
           <div class="card-header">
-            <h3>2. Entreprise signataire</h3>
+            <h3>2. Signataires</h3>
             <div class="card-actions">
-              <button type="button" id="btn-manage-companies" class="btn btn-sm btn-outline">Gérer les entreprises</button>
+              <button type="button" id="btn-manage-companies" class="btn btn-sm btn-outline">Entreprises</button>
+              <button type="button" id="btn-manage-signers" class="btn btn-sm btn-outline">Gérer les signataires</button>
             </div>
           </div>
           <div class="card-body">
             <div class="form-group">
               <label for="sig-company-select">Quelle société signe ce document ?</label>
               <select id="sig-company-select"></select>
-              <small class="form-hint">L'entreprise sélectionnée apparaît sous chaque signature. Ajoutez vos différentes sociétés dans « Profils ».</small>
+              <small class="form-hint">Apparaît sous chaque signature — sociétés gérées via « Entreprises ».</small>
             </div>
-          </div>
-        </div>
-
-        <!-- 3. Signataires -->
-        <div class="card">
-          <div class="card-header">
-            <h3>3. Signataires</h3>
-            <div class="card-actions">
-              <button type="button" id="btn-manage-signers" class="btn btn-sm btn-outline">Gérer les signataires</button>
-            </div>
-          </div>
-          <div class="card-body">
             <div id="sig-signers-chips" class="sig-chips"></div>
-            <small class="form-hint">Cliquez pour sélectionner un signataire, puis placez sa signature : position automatique sur toutes les pages, position précise reproduite sur toutes les pages, ou placement manuel page par page. Une puce déjà active se retire d'un nouveau clic ; chaque signataire sélectionné doit être placé.</small>
+            <small class="form-hint">Cliquez pour sélectionner un signataire (un 2ᵉ clic le retire) ; chaque signataire sélectionné doit ensuite être placé : automatique, précis ou manuel.</small>
             <div id="sig-signers-config" class="sig-signers-config"></div>
             <datalist id="sig-mentions">
               <option value="Bon pour accord"></option>
@@ -433,25 +433,25 @@
           </div>
         </div>
 
-        <!-- 4. Placement -->
+        <!-- 3. Placement -->
         <div class="card">
-          <div class="card-header"><h3>4. Placement des signatures</h3></div>
+          <div class="card-header"><h3>3. Placement des signatures</h3></div>
           <div class="card-body">
-            <div class="form-row cols-2">
+            <div class="form-row cols-2 sig-place-row">
               <div class="form-group">
                 <label>Mode de placement</label>
                 <div class="radio-row">
                   <label class="radio-pill">
                     <input type="radio" name="sig-place-mode" value="auto" checked>
-                    <span>Automatique — position par défaut</span>
+                    <span>Automatique</span>
                   </label>
                   <label class="radio-pill">
                     <input type="radio" name="sig-place-mode" value="precise">
-                    <span>Précis — placer sur la 1<sup>re</sup> page</span>
+                    <span>Précis (1<sup>re</sup> page)</span>
                   </label>
                   <label class="radio-pill">
                     <input type="radio" name="sig-place-mode" value="manual">
-                    <span>Manuel — page par page</span>
+                    <span>Manuel</span>
                   </label>
                 </div>
               </div>
@@ -469,21 +469,27 @@
                 </select>
               </div>
             </div>
-            <small class="form-hint" id="sig-place-hint">En mode automatique, chaque signataire est placé sur toutes les pages à la position choisie. Déplacer ou redimensionner un bloc entraîne ses copies sur toutes les autres pages ; « × » supprime uniquement la copie de cette page.</small>
-            <p class="empty-state" id="sig-pages-empty">Téléversez d'abord un PDF.</p>
-            <div id="sig-pages" class="sig-pages"></div>
+            <small class="form-hint" id="sig-place-hint">Automatique : toutes les pages à la position choisie. Déplacer ou redimensionner un bloc entraîne ses copies ; « × » supprime la copie de la page.</small>
           </div>
         </div>
 
-        <div class="form-actions">
-          <button type="button" id="btn-sig-cancel" class="btn btn-outline">Annuler</button>
-          <button type="button" id="btn-sign-doc" class="btn btn-primary" disabled>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
-            Signer le document
-          </button>
-        </div>
         <p class="form-hint sig-status-line"><span id="sig-sign-hint">Téléversez d'abord le PDF à signer.</span></p>
-        <p class="form-hint sig-status-line">Signature simple apposée sur le PDF — ne constitue pas une signature électronique qualifiée (eIDAS).</p>
+        <p class="form-hint sig-status-line">Signature simple sur le PDF — non qualifiée eIDAS.</p>
+
+        </div>
+        <div class="sig-editor-right">
+          <div class="card sig-viewer-card">
+            <div class="card-header">
+              <h3>Aperçu du document</h3>
+              <small class="sig-viewer-hint">Défilez pour parcourir les pages</small>
+            </div>
+            <div class="card-body sig-viewer-body">
+              <p class="empty-state" id="sig-pages-empty">Téléversez d'abord un PDF.</p>
+              <div id="sig-pages" class="sig-pages"></div>
+            </div>
+          </div>
+        </div>
+        </div>
       </section>
 
       <!-- ===== PROFILES VIEW (signataires) ===== -->
@@ -814,16 +820,16 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="js/state.js?v=17"></script>
-  <script src="js/server-sync.js?v=17"></script>
-  <script src="js/markdown.js?v=17"></script>
-  <script src="js/companies.js?v=17"></script>
-  <script src="js/settings.js?v=17"></script>
-  <script src="js/clients.js?v=17"></script>
-  <script src="js/signatures.js?v=17"></script>
-  <script src="js/editor.js?v=17"></script>
-  <script src="js/pdf.js?v=17"></script>
-  <script src="js/history.js?v=17"></script>
-  <script src="js/app.js?v=17"></script>
+  <script src="js/state.js?v=18"></script>
+  <script src="js/server-sync.js?v=18"></script>
+  <script src="js/markdown.js?v=18"></script>
+  <script src="js/companies.js?v=18"></script>
+  <script src="js/settings.js?v=18"></script>
+  <script src="js/clients.js?v=18"></script>
+  <script src="js/signatures.js?v=18"></script>
+  <script src="js/editor.js?v=18"></script>
+  <script src="js/pdf.js?v=18"></script>
+  <script src="js/history.js?v=18"></script>
+  <script src="js/app.js?v=18"></script>
 </body>
 </html>

@@ -316,10 +316,17 @@ function newWizardState() {
 }
 
 function startSignatureWizard() {
+  // reprend l'assistant en cours s'il y a un brouillon (PDF chargé,
+  // signataires ou infos saisies) ; sinon on repart de zéro
+  const draft = sigWizard && (sigWizard.pdfBytes || sigWizard.signers.length
+    || (sigWizard.title || '').trim() || (sigWizard.description || '').trim());
+  if (!draft) resetSignatureWizard();
   showView('signatureNew'); // le hook showView appelle prepareSignatureWizard()
 }
 
-function prepareSignatureWizard() {
+// Remise à zéro complète de l'assistant (état + champs) :
+// démarrage d'une nouvelle signature, annulation, ou après signature.
+function resetSignatureWizard() {
   sigWizard = newWizardState();
   const $ = (id) => document.getElementById(id);
 
@@ -340,6 +347,71 @@ function prepareSignatureWizard() {
 
   populateWizardCompanies();
   renderWizardSigners();
+  updateSignButtonState();
+}
+
+// Appelé à chaque affichage de la vue : réaffiche l'état courant de
+// l'assistant. Naviguer vers une autre page (entreprises, signataires…)
+// puis revenir ne perd plus rien — la remise à zéro n'a lieu que via
+// resetSignatureWizard().
+async function prepareSignatureWizard() {
+  if (!sigWizard) {
+    resetSignatureWizard();
+    return;
+  }
+  const $ = (id) => document.getElementById(id);
+
+  // champs du formulaire
+  $('sig-title').value = sigWizard.title;
+  $('sig-type').value = sigWizard.docType;
+  $('sig-description').value = sigWizard.description;
+  $('sig-date').value = sigWizard.date;
+  $('sig-file-input').value = '';
+
+  // fichier chargé : réafficher ses infos (et masquer la zone d'upload)
+  if (sigWizard.pdfjsDoc) {
+    $('sig-file-name').textContent = sigWizard.fileName;
+    const sizeMb = sigWizard.pdfBytes ? sigWizard.pdfBytes.length / 1024 / 1024 : 0;
+    $('sig-file-meta').textContent =
+      `${sizeMb.toFixed(2)} Mo · ${sigWizard.pageCount} page${sigWizard.pageCount > 1 ? 's' : ''}`;
+    $('sig-file-info').hidden = false;
+    $('sig-dropzone').style.display = 'none';
+    // filet de sécurité : re-rendre les pages si le conteneur a été vidé
+    if (!$('sig-pages').querySelector('.sig-page')) await renderWizardPdfPages();
+  } else {
+    $('sig-file-info').hidden = true;
+    $('sig-dropzone').style.display = '';
+  }
+
+  // entreprise émettrice : la liste a pu changer sur la page Entreprises,
+  // on conserve le choix précédent s'il existe toujours
+  const prevCompany = sigWizard.companyId;
+  populateWizardCompanies();
+  if (prevCompany && getCompany(prevCompany)) {
+    sigWizard.companyId = prevCompany;
+    $('sig-company-select').value = prevCompany;
+    renderSignersConfig();
+  }
+
+  // mode de placement + position automatique
+  const modeRadio = document.querySelector(
+    `input[name="sig-place-mode"][value="${sigWizard.placementMode}"]`);
+  if (modeRadio) modeRadio.checked = true;
+  $('sig-auto-pos').value = sigWizard.autoPosition;
+  updateSigPlaceModeUI();
+
+  // signataires supprimés depuis la page Signataires : on nettoie
+  sigWizard.signers = sigWizard.signers.filter((id) =>
+    (state.signatureProfiles || []).some((p) => p.id === id));
+  sigWizard.placements = sigWizard.placements.filter((p) =>
+    (state.signatureProfiles || []).some((x) => x.id === p.profileId));
+  if (sigWizard.activeSigner && !sigWizard.signers.includes(sigWizard.activeSigner)) {
+    sigWizard.activeSigner = sigWizard.signers[sigWizard.signers.length - 1] || null;
+  }
+
+  renderWizardSigners();
+  await refreshSigBlocks(); // profils modifiés entre-temps : blocs à regénérer
+  renderSigPlacements();
   updateSignButtonState();
 }
 
@@ -499,23 +571,25 @@ function renderSignersConfig() {
                    value="${escapeHTML(meta.mention || '').replace(/"/g, '&quot;')}" placeholder="Ex : Bon pour accord">
           </label>
         </div>
-        <div class="sig-signer-config-subtitle">Texte du bloc — taille, couleur, police</div>
-        <div class="sig-signer-config-fields sig-style-fields">
-          <label>Taille du texte
-            <span class="sig-style-size">
-              <input type="range" min="0.7" max="1.8" step="0.05" data-sc-size="${id}" value="${style.scale}">
-              <output data-sc-size-out="${id}">${Math.round(style.scale * 100)} %</output>
-            </span>
-          </label>
-          <label>Couleur
-            <input type="color" data-sc-color="${id}" value="${style.color}">
-          </label>
-          <label>Police
-            <select data-sc-font="${id}">
-              ${SIG_TEXT_FONTS.map((f) => `<option value="${f.family}"${style.font === f.family ? ' selected' : ''}>${escapeHTML(f.label)}</option>`).join('')}
-            </select>
-          </label>
-        </div>
+        <details class="sig-style-details">
+          <summary>Texte du bloc — taille, couleur, police</summary>
+          <div class="sig-signer-config-fields sig-style-fields">
+            <label>Taille du texte
+              <span class="sig-style-size">
+                <input type="range" min="0.7" max="1.8" step="0.05" data-sc-size="${id}" value="${style.scale}">
+                <output data-sc-size-out="${id}">${Math.round(style.scale * 100)} %</output>
+              </span>
+            </label>
+            <label>Couleur
+              <input type="color" data-sc-color="${id}" value="${style.color}">
+            </label>
+            <label>Police
+              <select data-sc-font="${id}">
+                ${SIG_TEXT_FONTS.map((f) => `<option value="${f.family}"${style.font === f.family ? ' selected' : ''}>${escapeHTML(f.label)}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+        </details>
       </div>`;
   }).join('');
 
@@ -696,7 +770,7 @@ async function renderWizardPdfPages() {
 async function getSigSignatureImg(profile) {
   if (!profile) return null;
   const key = profile.styleType === 'draw'
-    ? profile.id + '|draw'
+    ? profile.id + '|draw|' + (profile.drawData ? profile.drawData.length : 0)
     : profile.id + '|' + (profile.font || '') + '|' + (profile.name || '');
   if (sigImgCache[key]) return sigImgCache[key];
 
@@ -743,7 +817,9 @@ async function buildSigBlockFor(profileId) {
   const mention = signerMention(profileId);
   const dateStr = sigWizard.date || todayISO();
   const style = signerTextStyle(profileId);
-  const key = [profileId, company.name, company.city, dateStr, mention,
+  const key = [profileId, profile.name, profile.role, profile.styleType, profile.font,
+    profile.drawData ? profile.drawData.length : 0,
+    company.name, company.city, dateStr, mention,
     style.scale, style.color, style.font].join('|');
   const cached = sigWizard.blocks[profileId];
   if (cached && cached.key === key) return cached;
@@ -900,11 +976,11 @@ function updateSigPlaceModeUI() {
   if (group) group.hidden = !isAuto;
   if (!hint) return;
   if (isAuto) {
-    hint.textContent = 'En mode automatique, chaque signataire est placé sur toutes les pages à la position choisie. Déplacer ou redimensionner un bloc entraîne ses copies sur toutes les autres pages ; « × » supprime uniquement la copie de cette page.';
+    hint.textContent = 'Automatique : toutes les pages à la position choisie. Déplacer ou redimensionner un bloc entraîne ses copies ; « × » supprime la copie de la page.';
   } else if (sigWizard.placementMode === 'precise') {
-    hint.textContent = 'Cliquez sur la première page pour placer un signataire : la position est reproduite sur toutes les pages. Ajustez ensuite chaque page librement (glisser, redimensionner, supprimer) — ces réglages restent locaux.';
+    hint.textContent = 'Cliquez sur la 1ʳᵉ page pour placer un signataire : la position est reproduite sur toutes les pages, puis ajustable librement page par page.';
   } else {
-    hint.textContent = 'En mode manuel, sélectionnez un signataire (puces ci-dessus) puis cliquez sur le document pour placer ou déplacer sa signature. Cliquez sur d\'autres pages pour l\'y ajouter aussi.';
+    hint.textContent = 'Sélectionnez un signataire (puces ci-dessus) puis cliquez sur le document pour placer sa signature ; cliquez sur une autre page pour l\'y ajouter.';
   }
 }
 
@@ -1225,6 +1301,7 @@ async function doSignDocument() {
     const saved = await saveSignedDoc(meta, out);
     triggerPdfDownload(meta.fileName, out);
     showToast(saved ? 'Document signé et enregistré' : 'Document signé, mais non sauvegardé (espace insuffisant)');
+    resetSignatureWizard(); // signature terminée : assistant vidé pour la suivante
     showView('signatures');
   } catch (e) {
     console.error('Signature:', e);
@@ -1565,7 +1642,17 @@ function initSignatures() {
 
   // Assistant : signature
   $('btn-sign-doc').addEventListener('click', doSignDocument);
-  $('btn-sig-cancel').addEventListener('click', () => showView('signatures'));
+  $('btn-sig-cancel').addEventListener('click', () => {
+    resetSignatureWizard(); // abandon : la reprise n'a plus de sens
+    showView('signatures');
+  });
+  $('btn-sig-restart').addEventListener('click', () => {
+    if (sigWizard.pdfBytes
+      && !confirm('Recommencer ? Le PDF chargé et tous les réglages de cette signature seront effacés.')) {
+      return;
+    }
+    resetSignatureWizard();
+  });
 
   // Profils : signataires
   $('btn-new-signer').addEventListener('click', () => openSigProfileModal(null));

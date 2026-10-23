@@ -185,6 +185,11 @@ function showView(viewId, navigate = true) {
   const btn = document.querySelector(`.nav-btn[data-view="${viewId}"]`);
   if (btn) btn.classList.add('active');
 
+  // Assistant de signature : conteneur élargi pour les 2 colonnes
+  // (paramètres à gauche, visionneuse PDF à droite)
+  const main = document.querySelector('.app-main');
+  if (main) main.classList.toggle('sig-wide', viewId === 'signatureNew');
+
   if (viewId === 'history') renderHistory();
   if (viewId === 'clients') renderClients();
   if (viewId === 'signatures') renderSignaturesList(true);
