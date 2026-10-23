@@ -9,6 +9,7 @@ RUN npm ci --omit=dev
 # Statiques servis par server.js depuis /app/public
 COPY server/server.js /app/server.js
 COPY index.html login.html /app/public/
+COPY DOCUMENTATION.md /app/public/DOCUMENTATION.md
 COPY style.css /app/public/style.css
 COPY js/ /app/public/js/
 

@@ -161,10 +161,13 @@ function importData(e) {
       state.clients = imported.clients || [];
       state.invoices = imported.invoices || [];
       state.counters = imported.counters || { invoice: 0, quote: 0 };
+      state.companies = imported.companies || [];
+      state.signatureProfiles = imported.signatureProfiles || [];
 
       saveState();
       loadSettingsForm();
       populateClientSelect();
+      if (typeof renderProfiles === 'function') renderProfiles();
       resetInvoiceForm();
       showToast('Données importées avec succès');
     } catch (err) {

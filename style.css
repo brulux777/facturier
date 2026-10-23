@@ -1275,3 +1275,479 @@ body.login-page {
   min-height: 220px;
 }
 
+/* ============================================
+   SIGNATURE DE DOCUMENTS
+   ============================================ */
+
+/* --- liste des documents signés --- */
+
+.signed-docs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.signed-doc-item {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition);
+}
+
+.signed-doc-item:hover {
+  box-shadow: var(--shadow);
+}
+
+.signed-doc-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-success-light);
+  color: var(--color-success);
+  border-radius: var(--radius-sm);
+}
+
+.signed-doc-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.signed-doc-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.signed-doc-title {
+  font-weight: 600;
+  font-size: 0.92rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.badge-sig {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.signed-doc-meta {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+.signed-doc-desc {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signed-doc-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* --- assistant : fichier chargé --- */
+
+.sig-file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--color-success-light);
+  border: 1px solid #bbf7d0;
+  color: var(--color-success);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+}
+
+.sig-file-info[hidden] {
+  display: none;
+}
+
+.sig-file-info > svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.sig-file-info-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sig-file-info-text strong {
+  color: var(--color-text);
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sig-file-info-text small {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}
+
+.sig-dropzone.dragover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-text);
+}
+
+/* --- assistant : puces signataires --- */
+
+.sig-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.sig-chips-empty {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.signer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  color: var(--color-text-secondary);
+}
+
+.signer-chip:hover {
+  border-color: var(--sig-c, var(--color-primary));
+  color: var(--color-text);
+}
+
+.signer-chip.selected {
+  border-color: var(--sig-c, var(--color-primary));
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.signer-chip.active {
+  background: var(--sig-c, var(--color-primary));
+  border-color: var(--sig-c, var(--color-primary));
+  color: #ffffff;
+}
+
+.signer-chip-role {
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+
+/* --- assistant : pages PDF + placement --- */
+
+.sig-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-items: center;
+}
+
+.sig-page {
+  position: relative;
+  background: #ffffff;
+  box-shadow: var(--shadow-md);
+  border-radius: 2px;
+  max-width: 100%;
+}
+
+.sig-page canvas {
+  display: block;
+  width: 100%;
+  border-radius: 2px;
+}
+
+.sig-page-label {
+  position: absolute;
+  top: -22px;
+  left: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sig-overlay {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  border-radius: 2px;
+}
+
+.sig-box {
+  position: absolute;
+  cursor: grab;
+  border: 1.5px dashed transparent;
+  border-radius: 4px;
+  touch-action: none;
+}
+
+.sig-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+.sig-box:hover,
+.sig-box.active {
+  border-color: var(--sig-c, var(--color-primary));
+  background: color-mix(in srgb, var(--sig-c, var(--color-primary)) 6%, transparent);
+}
+
+.sig-box:active {
+  cursor: grabbing;
+}
+
+.sig-box-tools {
+  position: absolute;
+  top: -12px;
+  right: -6px;
+  display: none;
+  gap: 4px;
+}
+
+.sig-box:hover .sig-box-tools,
+.sig-box.active .sig-box-tools {
+  display: flex;
+}
+
+.sig-box-tools button {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sig-box-tools button:hover {
+  border-color: var(--sig-c, var(--color-primary));
+  color: var(--sig-c, var(--color-primary));
+}
+
+.sig-status-line {
+  text-align: center;
+  margin-top: -6px;
+  margin-bottom: 10px;
+}
+
+/* --- profils (signataires / entreprises) --- */
+
+.profiles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  background: var(--color-surface);
+  transition: box-shadow var(--transition);
+}
+
+.profile-item:hover {
+  box-shadow: var(--shadow);
+}
+
+.profile-sig-preview {
+  flex-shrink: 0;
+  width: 120px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fdfdfd;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.profile-sig-preview img {
+  max-width: 110px;
+  max-height: 44px;
+  object-fit: contain;
+}
+
+.company-item-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-radius: var(--radius-sm);
+}
+
+.company-item-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.profile-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-item-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.profile-item-details {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.profile-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* --- modale signataire : polices & dessin --- */
+
+.radio-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.radio-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.radio-pill:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.radio-pill input {
+  margin: 0;
+}
+
+.sp-font-choices {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sp-font-option {
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  padding: 8px 16px;
+  font-size: 1.15rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.sp-font-option:hover {
+  border-color: var(--color-primary);
+}
+
+.sp-font-option.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.sp-preview {
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font-size: 1.7rem;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  background: #fdfdfd;
+}
+
+.sp-draw-wrap canvas {
+  width: 100%;
+  height: 160px;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius);
+  background: #fdfdfd;
+  cursor: crosshair;
+  touch-action: none;
+  display: block;
+}
+
+/* --- responsive --- */
+
+@media (max-width: 640px) {
+  .signed-doc-item {
+    flex-wrap: wrap;
+  }
+
+  .signed-doc-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .profile-item {
+    flex-wrap: wrap;
+  }
+
+  .profile-sig-preview {
+    width: 90px;
+    height: 44px;
+  }
+}
+
+

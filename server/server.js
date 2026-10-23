@@ -11,6 +11,11 @@
      session par cookie signé HMAC, tentatives limitées par IP.
      Tous les comptes partagent les mêmes données (pas de
      cloisonnement par utilisateur).
+   - Vérification d'email obligatoire à l'inscription (colonne
+     `users.email_verified_at`, table `email_verifications`,
+     jeton 24 h à usage unique envoyé via SMTP) : la connexion
+     est refusée jusqu'à ce que le lien ait été ouvert ;
+     renvoi du lien possible depuis la page de connexion.
    - Réinitialisation de mot de passe par email (table
      `password_resets`, jeton 1 h à usage unique) via SMTP.
    - Pages app protégées : 302 vers /login.html?next=... si non
@@ -49,6 +54,7 @@ const COOKIE_SECURE = process.env.COOKIE_SECURE === '1';
 const SESSION_TTL_DAYS = parseInt(process.env.SESSION_TTL_DAYS || '30', 10);
 const MAX_BODY_BYTES = 15 * 1024 * 1024; // 15 Mo
 const RESET_TTL_MS = 60 * 60 * 1000; // jeton de reset valable 1 h
+const SIGNED_PDF_MAX_BYTES = 10 * 1024 * 1024; // PDF signé stocké : 10 Mo max
 
 // Compte unique historique (variables d'env) : uniquement pour amorcer
 // la table `users` au premier démarrage, jamais vérifié ensuite.
@@ -198,6 +204,27 @@ function publicBaseUrl(req) {
   return `${proto}://${host}`;
 }
 
+// Génère un jeton de vérification d'email (24 h, un seul actif par compte,
+// les anciens sont purgés) et envoie le lien par SMTP.
+async function sendVerificationEmail(req, userId, email) {
+  const token = crypto.randomBytes(32).toString('hex');
+  await pool.query('DELETE FROM email_verifications WHERE user_id = $1', [userId]);
+  await pool.query(
+    'INSERT INTO email_verifications (token_hash, user_id, expires_at) VALUES ($1, $2, now() + interval \'24 hours\')',
+    [sha256hex(token), userId]
+  );
+  const link = `${publicBaseUrl(req)}/login.html?verify=${token}`;
+  await sendMail({
+    to: email,
+    subject: 'Vérifiez votre email — Facturier',
+    text:
+      'Bonjour,\n\n' +
+      'Un compte Facturier vient d\u2019être créé avec cette adresse email.\n\n' +
+      `Ouvrez ce lien (valable 24 heures) pour activer votre compte :\n${link}\n\n` +
+      'Si vous n\u2019êtes pas à l\u2019origine de cette demande, ignorez simplement cet email.\n',
+  });
+}
+
 // ---------- rate-limit login (mémoire, 10 essais / 15 min / IP) ----------
 
 const loginAttempts = new Map(); // ip -> { count, resetAt }
@@ -265,6 +292,9 @@ async function initDb() {
       created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+    -- NULL = email non vérifié ; DEFAULT now() : les comptes existants
+    -- (et le compte historique importé) restent réputés vérifiés.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ DEFAULT now();
     CREATE TABLE IF NOT EXISTS password_resets (
       token_hash TEXT PRIMARY KEY,
       user_id    INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -272,6 +302,19 @@ async function initDb() {
       used_at    TIMESTAMPTZ
     );
     CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets (user_id);
+    CREATE TABLE IF NOT EXISTS email_verifications (
+      token_hash TEXT PRIMARY KEY,
+      user_id    INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at    TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS idx_email_verifications_user ON email_verifications (user_id);
+    CREATE TABLE IF NOT EXISTS signed_docs (
+      id         TEXT PRIMARY KEY,
+      data       JSONB NOT NULL,
+      pdf        BYTEA NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
   `);
 
   // Amorçage : compte unique historique (AUTH_* dans .env) → table users.
@@ -318,8 +361,12 @@ async function readStateFromDb() {
   const res = {};
   const s = await pool.query('SELECT data FROM settings WHERE id = 1');
   if (s.rowCount === 0) return null;
-  res.settings = (s.rows[0].data && s.rows[0].data.settings) || {};
-  res.counters = (s.rows[0].data && s.rows[0].data.counters) || { invoice: 0, quote: 0 };
+  const sd = s.rows[0].data || {};
+  res.settings = sd.settings || {};
+  res.counters = sd.counters || { invoice: 0, quote: 0 };
+  // Profils (entreprises & signataires) portés par le blob settings
+  res.companies = Array.isArray(sd.companies) ? sd.companies : [];
+  res.signatureProfiles = Array.isArray(sd.signatureProfiles) ? sd.signatureProfiles : [];
 
   const c = await pool.query('SELECT data FROM clients ORDER BY data->>\'name\'');
   res.clients = c.rows.map((r) => r.data);
@@ -336,7 +383,12 @@ async function writeStateToDb(st) {
     await client.query(
       `INSERT INTO settings (id, data, updated_at) VALUES (1, $1::jsonb, now())
        ON CONFLICT (id) DO UPDATE SET data = $1::jsonb, updated_at = now()`,
-      [JSON.stringify({ settings: st.settings || {}, counters: st.counters || { invoice: 0, quote: 0 } })]
+      [JSON.stringify({
+        settings: st.settings || {},
+        counters: st.counters || { invoice: 0, quote: 0 },
+        companies: Array.isArray(st.companies) ? st.companies : [],
+        signatureProfiles: Array.isArray(st.signatureProfiles) ? st.signatureProfiles : [],
+      })]
     );
     await client.query('DELETE FROM clients');
     for (let k = 0; k < (st.clients || []).length; k++) {
@@ -377,6 +429,7 @@ const MIME = {
   '.jpg': 'image/jpeg',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
+  '.md': 'text/markdown; charset=utf-8',
 };
 
 const STATIC_ROOT = __dirname + '/public';
@@ -457,6 +510,14 @@ function sendJson(res, code, obj, extraHeaders) {
   res.end(body);
 }
 
+// Nom de fichier sûr pour l'en-tête Content-Disposition : fallback ASCII +
+// variante filename*=UTF-8 qui conserve les accents
+function safeFileNameHeaders(name) {
+  const raw = String(name || '').replace(/[\\/:*?"<>|\r\n]/g, '_').trim().slice(0, 120) || 'document.pdf';
+  const ascii = raw.replace(/[^\x20-\x7E]/g, '_');
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(raw)}`;
+}
+
 // ---------- serveur ----------
 
 const server = http.createServer(async (req, res) => {
@@ -482,9 +543,19 @@ const server = http.createServer(async (req, res) => {
       const body = await readJsonBody(req);
       const email = String((body && body.email) || '').trim().toLowerCase();
       const password = String((body && body.password) || '');
-      const { rows } = await pool.query('SELECT id, password_hash FROM users WHERE email = $1', [email]);
+      const { rows } = await pool.query(
+        'SELECT id, password_hash, email_verified_at FROM users WHERE email = $1',
+        [email]
+      );
       const user = rows[0];
       if (user && await verifyPassword(password, user.password_hash)) {
+        // Vérifié seulement après le mot de passe (pas d'indice avant)
+        if (!user.email_verified_at) {
+          return sendJson(res, 403, {
+            error: 'Compte non vérifié — ouvrez le lien envoyé par email à la création du compte',
+            code: 'email_unverified',
+          });
+        }
         loginAttempts.delete(clientIp(req));
         // Ancien hash sha256 (compte initial importé) → migré en scrypt
         if (!user.password_hash.startsWith('scrypt$')) {
@@ -518,15 +589,24 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, { error: 'Mot de passe : 8 caractères minimum' });
       }
       const hash = await hashPassword(password);
-      const { rowCount } = await pool.query(
-        'INSERT INTO users (email, password_hash) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING',
+      // email_verified_at NULL : le compte doit être activé via le lien email
+      const { rows } = await pool.query(
+        `INSERT INTO users (email, password_hash, email_verified_at)
+         VALUES ($1, $2, NULL) ON CONFLICT (email) DO NOTHING RETURNING id`,
         [email, hash]
       );
-      if (rowCount === 0) {
-        return sendJson(res, 409, { error: 'Un compte existe déjà pour cet email' });
+      if (rows.length === 0) {
+        return sendJson(res, 409, { error: 'Un compte existe déjà pour cet email — connectez-vous (ou demandez un nouveau lien de vérification)' });
       }
       loginAttempts.delete(clientIp(req));
-      return sendJson(res, 201, { ok: true }, { 'Set-Cookie': sessionCookieHeader(email) });
+      let emailSent = true;
+      try {
+        await sendVerificationEmail(req, rows[0].id, email);
+      } catch (e) {
+        emailSent = false;
+        console.error('[facturier] Envoi email de vérification impossible:', e.message);
+      }
+      return sendJson(res, 201, { ok: true, emailSent });
     }
 
     // --- mot de passe oublié (public — réponse identique que le compte existe ou non) ---
@@ -599,6 +679,66 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { ok: true });
     }
 
+    // --- vérification d'email via jeton (public, 24 h à usage unique) ---
+    if (pathname === '/api/email/verify' && req.method === 'POST') {
+      if (!loginAllowed(clientIp(req))) {
+        return sendJson(res, 429, { error: 'Trop de tentatives, réessayez dans 15 minutes' });
+      }
+      const body = await readJsonBody(req);
+      const token = String((body && body.token) || '');
+      if (!/^[0-9a-f]{64}$/.test(token)) {
+        return sendJson(res, 400, { error: 'Lien de vérification invalide' });
+      }
+      const { rows } = await pool.query(
+        `SELECT user_id FROM email_verifications
+         WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()`,
+        [sha256hex(token)]
+      );
+      const verif = rows[0];
+      if (!verif) {
+        return sendJson(res, 400, { error: 'Lien invalide ou expiré — connectez-vous puis demandez un nouveau lien de vérification' });
+      }
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(
+          'UPDATE users SET email_verified_at = now(), updated_at = now() WHERE id = $1 AND email_verified_at IS NULL',
+          [verif.user_id]
+        );
+        await client.query('UPDATE email_verifications SET used_at = now() WHERE token_hash = $1', [sha256hex(token)]);
+        await client.query('DELETE FROM email_verifications WHERE user_id = $1 AND used_at IS NULL', [verif.user_id]);
+        await client.query('COMMIT');
+      } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw e;
+      } finally {
+        client.release();
+      }
+      return sendJson(res, 200, { ok: true });
+    }
+
+    // --- renvoi du lien de vérification (compte existant non vérifié) ---
+    if (pathname === '/api/email/resend' && req.method === 'POST') {
+      if (!loginAllowed(clientIp(req))) {
+        return sendJson(res, 429, { error: 'Trop de tentatives, réessayez dans 15 minutes' });
+      }
+      const body = await readJsonBody(req);
+      const email = String((body && body.email) || '').trim().toLowerCase();
+      const { rows } = await pool.query(
+        'SELECT id FROM users WHERE email = $1 AND email_verified_at IS NULL',
+        [email]
+      );
+      if (rows[0]) {
+        try {
+          await sendVerificationEmail(req, rows[0].id, email);
+        } catch (e) {
+          console.error('[facturier] Envoi email de vérification impossible:', e.message);
+        }
+      }
+      // Réponse identique que le compte existe ou non (pas d'énumération)
+      return sendJson(res, 200, { ok: true });
+    }
+
     // --- logout ---
     if (pathname === '/api/logout' && req.method === 'POST') {
       const cookie = 'facturier_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
@@ -641,6 +781,53 @@ const server = http.createServer(async (req, res) => {
         }
         await writeStateToDb(body);
         return sendJson(res, 200, { ok: true, savedAt: new Date().toISOString() });
+      }
+
+      // --- documents signés (binaires PDF) : table dédiée, hors état ---
+      if (pathname === '/api/signed-docs' && req.method === 'GET') {
+        const { rows } = await pool.query(
+          `SELECT id, data FROM signed_docs ORDER BY data->>'createdAt' DESC`
+        );
+        return sendJson(res, 200, { docs: rows.map((r) => Object.assign({ id: r.id }, r.data || {})) });
+      }
+      if (pathname === '/api/signed-docs' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const id = String((body && body.id) || '');
+        const meta = (body && typeof body.data === 'object' && body.data) || null;
+        const b64 = String((body && body.pdfBase64) || '');
+        if (!/^[a-zA-Z0-9_-]{6,64}$/.test(id) || !meta || !b64) {
+          return sendJson(res, 400, { error: 'Requête invalide' });
+        }
+        const pdf = Buffer.from(b64, 'base64');
+        if (pdf.length < 500 || pdf.length > SIGNED_PDF_MAX_BYTES) {
+          return sendJson(res, 413, { error: 'PDF invalide ou trop volumineux (max 10 Mo)' });
+        }
+        if (pdf.subarray(0, 5).toString('latin1') !== '%PDF-') {
+          return sendJson(res, 400, { error: 'Le fichier n\'est pas un PDF' });
+        }
+        await pool.query(
+          `INSERT INTO signed_docs (id, data, pdf) VALUES ($1, $2::jsonb, $3)
+           ON CONFLICT (id) DO UPDATE SET data = $2::jsonb, pdf = $3`,
+          [id, JSON.stringify(meta), pdf]
+        );
+        return sendJson(res, 201, { ok: true });
+      }
+      const mSigPdf = pathname.match(/^\/api\/signed-docs\/([a-zA-Z0-9_-]+)\/pdf$/);
+      if (mSigPdf && req.method === 'GET') {
+        const { rows } = await pool.query('SELECT pdf, data FROM signed_docs WHERE id = $1', [mSigPdf[1]]);
+        if (!rows.length) return sendJson(res, 404, { error: 'Document introuvable' });
+        res.writeHead(200, {
+          'Content-Type': 'application/pdf',
+          'Content-Length': rows[0].pdf.length,
+          'Content-Disposition': safeFileNameHeaders((rows[0].data && rows[0].data.fileName) || 'document-signe.pdf'),
+          'Cache-Control': 'no-store',
+        });
+        return res.end(rows[0].pdf);
+      }
+      const mSigDel = pathname.match(/^\/api\/signed-docs\/([a-zA-Z0-9_-]+)$/);
+      if (mSigDel && req.method === 'DELETE') {
+        await pool.query('DELETE FROM signed_docs WHERE id = $1', [mSigDel[1]]);
+        return sendJson(res, 200, { ok: true });
       }
       return sendJson(res, 404, { error: 'Route inconnue' });
     }

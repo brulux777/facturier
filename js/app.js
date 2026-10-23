@@ -126,6 +126,9 @@ function init() {
 
   // Init editor
   resetInvoiceForm();
+
+  // Signature de documents + profils (signataires / entreprises)
+  initSignatures();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {

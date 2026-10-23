@@ -11,6 +11,7 @@ Générateur de factures et devis professionnel, gratuit et open-source. Fonctio
 - **Cahier des charges** — Markdown optionnel avec 3 emplacements au choix : intégré à la facture, en annexe sur une page séparée du même PDF, ou dans un second PDF téléchargé à part
 - **Paiement en 3 fois** — activable/désactivable par document, échéancier mensuel automatique (montants + dates)
 - **Gestion clients** — Enregistrement et réutilisation des fiches clients
+- **Signature de documents** — Upload d'un PDF, placement visuel des signatures (clic sur l'aperçu), plusieurs signataires, profils réutilisables (nom en écriture manuscrite ou dessin), choix de l'entreprise signataire, liste des documents signés avec re-téléchargement
 - **PDF professionnel** — Génération et téléchargement de PDF conformes aux normes françaises
 - **Historique** — Recherche, filtrage, statut (brouillon/envoyée/payée), duplication
 - **Paramètres entreprise** — Logo, coordonnées bancaires, mentions légales, bouton Enregistrer
@@ -26,6 +27,9 @@ Générateur de factures et devis professionnel, gratuit et open-source. Fonctio
 
 - HTML / CSS / JavaScript vanilla — aucun build step
 - [pdfmake](https://pdfmake.github.io/docs/) (CDN) — génération PDF vectorielle côté client
+- [pdf.js](https://mozilla.github.io/pdf.js/) (CDN) — aperçu des PDF à signer
+- [pdf-lib](https://pdf-lib.js.org/) (CDN) — apposition des signatures sur le PDF
+- Polices manuscrites Caveat, Dancing Script, Great Vibes, Parisienne (Google Fonts)
 - [Inter](https://fonts.google.com/specimen/Inter) (Google Fonts)
 - Serveur optionnel : Node.js — fichiers statiques + API de synchronisation + auth (dépendance `pg`)
 - Docker : `node:22-alpine` (web) + `postgres:16-alpine` (base de données, volume dédié)
@@ -34,6 +38,7 @@ Générateur de factures et devis professionnel, gratuit et open-source. Fonctio
 
 ```
 index.html           — app (route /)
+DOCUMENTATION.md     — documentation fonctionnelle (servie sur l'instance, ex. doc.eldcontrole.fr)
 login.html           — page de connexion (mode serveur)
 style.css
 js/
@@ -41,12 +46,13 @@ js/
   server-sync.js  — détection du backend, redirection login, synchronisation serveur
   settings.js     — paramètres entreprise, logo, import/export
   clients.js      — gestion des fiches clients
+  signatures.js   — signature de PDF : assistant, profils signataires/entreprises, liste
   editor.js       — éditeur de facture/devis, lignes, calculs
   pdf.js          — aperçu HTML + génération PDF (pdfmake)
   history.js      — historique, statuts, duplication
   app.js          — initialisation et event bindings
 server/
-  server.js       — serveur Node : statiques + API /api/state + auth (cookie HMAC)
+  server.js       — serveur Node : statiques + API /api/state + API /api/signed-docs + auth (cookie HMAC)
 package.json       — dépendance pg
 ```
 
@@ -56,10 +62,41 @@ reste en **mode local** (localStorage). Les données locales existantes
 sont migrées vers le serveur au premier lancement auto-hébergé.
 
 En mode serveur, chaque vue a son URL : `/` (nouveau document),
-`/historique`, `/clients`, `/parametres`. Toute page demandée sans
-session valide est redirigée (302) vers `/login.html?next=...` — l'app
-n'est pas servie avant authentification, et le login ramène à la page
-demandée.
+`/historique`, `/clients`, `/signature` (documents signés), `/signer`
+(assistant de signature), `/profils` (signataires & entreprises),
+`/parametres`. Toute page demandée sans session valide est redirigée
+(302) vers `/login.html?next=...` — l'app n'est pas servie avant
+authentification, et le login ramène à la page demandée.
+
+### Signature de documents
+
+La vue **Signature** liste les documents signés (re-téléchargeables,
+supprimables). L'assistant **Signer un document** : upload du PDF
+(8 Mo max) → titre/type/date/description → entreprise signataire
+(parmi les profils de la page **Profils**, sinon les paramètres) →
+signataires (profils réutilisables : nom rendu en police manuscrite ou
+dessin enregistré) → placement visuel : cliquer sur l'aperçu du PDF
+pour poser chaque signature (déplaçable, redimensionnable), puis
+**Signer le document**. Le bloc signature (image + nom + fonction +
+entreprise + date) est incrusté dans le PDF, téléchargé immédiatement
+et archivé dans la liste.
+
+En mode local, les PDF signés vivent dans le `localStorage` (clé
+dédiée, quota du navigateur). En mode serveur, ils sont stockés en
+base (table `signed_docs`) via une API dédiée, les métadonnées des
+profils (entreprises, signataires) étant portées par la synchro
+d'état habituelle.
+
+> Note : il s'agit d'une signature **simple** apposée sur le document
+> (garde-fou visuel), pas d'une signature électronique qualifiée au
+> sens du règlement eIDAS.
+
+La création de compte (limitée aux domaines email autorisés) exige une
+**vérification de l'email** : un lien valable 24 h est envoyé à
+l'inscription et la connexion est refusée jusqu'à ce qu'il ait été
+ouvert (renvoi possible depuis la page de connexion). Le mot de passe
+oublié se réinitialise aussi par email — un serveur SMTP est donc
+requis en mode auto-hébergé.
 
 ### Stockage (auto-hébergé)
 
@@ -68,9 +105,13 @@ Les données vivent dans PostgreSQL (conteneur `db`, volume
 
 | Table | Contenu |
 |---|---|
-| `settings` | paramètres entreprise + compteurs (JSONB, ligne unique) |
+| `settings` | paramètres entreprise + compteurs + profils entreprises/signataires (JSONB, ligne unique) |
 | `clients` | une ligne par client (JSONB) |
 | `invoices` | une ligne par facture/devis (JSONB) |
+| `signed_docs` | documents signés : métadonnées (JSONB) + PDF (BYTEA, 10 Mo max) |
+| `users` | comptes (email, hash scrypt, date de vérification d'email) |
+| `password_resets` | jetons de réinitialisation (1 h, usage unique) |
+| `email_verifications` | jetons de vérification d'email (24 h, usage unique) |
 
 Au premier démarrage, un éventuel `state.json` hérité de l'ancienne
 version (volume `facturier_data`) est migré automatiquement vers

@@ -155,6 +155,8 @@ async function syncBootstrap() {
     state.clients = serverState.clients || [];
     state.invoices = serverState.invoices || [];
     state.counters = serverState.counters || { invoice: 0, quote: 0 };
+    state.companies = serverState.companies || [];
+    state.signatureProfiles = serverState.signatureProfiles || [];
     return;
   }
 
@@ -172,6 +174,8 @@ async function syncBootstrap() {
     state.clients = saved.clients || [];
     state.invoices = saved.invoices || [];
     state.counters = saved.counters || { invoice: 0, quote: 0 };
+    state.companies = saved.companies || [];
+    state.signatureProfiles = saved.signatureProfiles || [];
     const ok = await pushStateToServer();
     if (ok) {
       localStorage.removeItem(STORAGE_KEY);

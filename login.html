@@ -25,6 +25,9 @@
 
     <div id="login-error" class="login-error"></div>
     <div id="login-info" class="login-info"></div>
+    <div id="verify-resend" class="login-info" style="display:none;">
+      Pas reçu ? <a href="#" id="link-resend-verify">Renvoyer l'email de vérification</a>.
+    </div>
 
     <button type="submit" id="auth-submit" class="btn btn-primary btn-block">Se connecter</button>
 
@@ -48,13 +51,14 @@
 
       const params = new URLSearchParams(location.search);
       const resetToken = params.get('reset');
+      const verifyToken = params.get('verify');
 
       // Retour à la page demandée initialement (302 /login.html?next=...)
       const next = params.get('next');
       const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
 
-      // Déjà connecté : pas besoin du formulaire (sauf réinitialisation en cours)
-      if (!resetToken) {
+      // Déjà connecté : pas besoin du formulaire (sauf reset/vérification en cours)
+      if (!resetToken && !verifyToken) {
         const probe = await fetch('/api/state', { credentials: 'same-origin' });
         if (probe.ok) {
           location.replace(safeNext);
@@ -72,35 +76,40 @@
       const confirmLabel = document.getElementById('field-confirm-label');
       const confirmEl = document.getElementById('auth-confirm');
       const linksEl = document.getElementById('auth-links');
+      const resendEl = document.getElementById('verify-resend');
 
-      // --- modes : login | register | forgot | reset ---
-      let mode = resetToken ? 'reset' : 'login';
+      // --- modes : login | register | forgot | reset | verify ---
+      let mode = resetToken ? 'reset' : verifyToken ? 'verify' : 'login';
 
       function setMode(m) {
         mode = m;
         errEl.textContent = '';
         infoEl.textContent = '';
+        resendEl.style.display = 'none';
         confirmLabel.style.display = (m === 'register' || m === 'reset') ? '' : 'none';
         confirmEl.style.display = (m === 'register' || m === 'reset') ? '' : 'none';
-        emailEl.parentElement.style.display = m === 'reset' ? 'none' : '';
-        passwordEl.parentElement.style.display = m === 'forgot' ? 'none' : '';
+        emailEl.parentElement.style.display = (m === 'reset' || m === 'verify') ? 'none' : '';
+        passwordEl.parentElement.style.display = (m === 'forgot' || m === 'verify') ? 'none' : '';
         passwordEl.setAttribute('autocomplete',
           m === 'login' ? 'current-password' : 'new-password');
-        linksEl.style.display = m === 'reset' ? 'none' : '';
+        submitBtn.style.display = m === 'verify' ? 'none' : '';
+        linksEl.style.display = (m === 'reset' || m === 'verify') ? 'none' : '';
         if (m === 'login') {
           hintEl.textContent = 'Cette instance synchronise vos données sur le serveur. Identifiez-vous pour y accéder.';
           submitBtn.textContent = 'Se connecter';
         } else if (m === 'register') {
-          hintEl.textContent = 'Compte réservé aux adresses @hoplacollect.fr, @eldcontrole.fr et @controleweb.fr.';
+          hintEl.textContent = 'Compte réservé aux adresses @hoplacollect.fr, @eldcontrole.fr et @controleweb.fr. Un lien de vérification vous sera envoyé par email.';
           submitBtn.textContent = 'Créer mon compte';
         } else if (m === 'forgot') {
           hintEl.textContent = 'Indiquez votre email : vous recevrez un lien de réinitialisation (valable 1 heure).';
           submitBtn.textContent = 'Envoyer le lien';
+        } else if (m === 'verify') {
+          hintEl.textContent = 'Vérification de votre adresse email…';
         } else {
           hintEl.textContent = 'Choisissez un nouveau mot de passe pour votre compte.';
           submitBtn.textContent = 'Enregistrer le mot de passe';
         }
-        (m === 'reset' ? passwordEl : emailEl).focus();
+        if (m !== 'verify') (m === 'reset' ? passwordEl : emailEl).focus();
       }
 
       function busy(b) {
@@ -134,6 +143,7 @@
               return;
             }
             errEl.textContent = j.error || 'Identifiants incorrects';
+            if (j.code === 'email_unverified') resendEl.style.display = '';
           } else if (mode === 'register') {
             if (passwordEl.value !== confirmEl.value) {
               errEl.textContent = 'Les deux mots de passe ne correspondent pas';
@@ -145,7 +155,14 @@
               password: passwordEl.value,
             });
             if (ok) {
-              location.replace(safeNext);
+              const msg = j.emailSent === false
+                ? 'Compte créé, mais l\u2019email de vérification n\u2019a pas pu être envoyé (serveur SMTP mal configuré) — contactez l\u2019administrateur.'
+                : 'Compte créé ! Ouvrez le lien de vérification envoyé par email (valable 24 h), puis connectez-vous.';
+              passwordEl.value = '';
+              confirmEl.value = '';
+              setMode('login'); // bascule le formulaire en connexion
+              infoEl.textContent = msg;
+              busy(false);
               return;
             }
             errEl.textContent = j.error || 'Création impossible';
@@ -193,8 +210,39 @@
         e.preventDefault();
         setMode(mode === 'forgot' ? 'login' : 'forgot');
       });
+      document.getElementById('link-resend-verify').addEventListener('click', async (e) => {
+        e.preventDefault();
+        resendEl.style.display = 'none';
+        errEl.textContent = '';
+        infoEl.textContent = 'Envoi du lien de vérification…';
+        try {
+          const { ok, j } = await api('/api/email/resend', { email: emailEl.value.trim() });
+          infoEl.textContent = ok
+            ? 'Si un compte non vérifié existe pour cet email, un nouveau lien vient d\u2019être envoyé (valable 24 h).'
+            : (j.error || 'Envoi impossible');
+        } catch (err) {
+          infoEl.textContent = 'Serveur injoignable';
+        }
+      });
 
       setMode(mode);
+
+      // Mode vérification : jeton reçu par email (?verify=...) — échangé
+      // automatiquement contre l'activation du compte, puis formulaire login.
+      if (mode === 'verify') {
+        let verifyOk = false;
+        let verifyMsg = 'Serveur injoignable';
+        try {
+          const { ok, j } = await api('/api/email/verify', { token: verifyToken });
+          verifyOk = ok;
+          verifyMsg = ok
+            ? 'Adresse vérifiée — vous pouvez maintenant vous connecter.'
+            : (j.error || 'Lien de vérification invalide ou expiré.');
+        } catch (err) { /* message par défaut conservé */ }
+        history.replaceState(null, '', '/login.html');
+        setMode('login');
+        (verifyOk ? infoEl : errEl).textContent = verifyMsg;
+      }
     })();
   </script>
 </body>

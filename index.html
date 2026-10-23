@@ -6,8 +6,8 @@
   <title>Facturier Pro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=14">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Caveat:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Parisienne&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
   <div id="app">
@@ -36,6 +36,14 @@
         <button class="nav-btn" data-view="clients">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Clients
+        </button>
+        <button class="nav-btn" data-view="signatures">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+          Signature
+        </button>
+        <button class="nav-btn" data-view="profiles">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8" cy="10" r="2"/><path d="M5.5 16.5c.6-1.6 1.7-2.2 2.5-2.2s1.9.6 2.5 2.2"/><path d="M13 8h5"/><path d="M13 12h5"/><path d="M13 16h3"/></svg>
+          Profils
         </button>
         <button class="nav-btn" data-view="settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -305,6 +313,166 @@
         </div>
       </section>
 
+      <!-- ===== SIGNATURES VIEW (liste) ===== -->
+      <section id="view-signatures" class="view">
+        <div class="view-header">
+          <h2>Documents signés</h2>
+          <div class="view-actions">
+            <input type="text" id="sig-search" placeholder="Rechercher..." class="search-input">
+            <button type="button" id="btn-new-signed-doc" class="btn btn-primary btn-sm">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+              Signer un document
+            </button>
+          </div>
+        </div>
+        <div id="signed-docs-list" class="signed-docs-list">
+          <p class="empty-state">Aucun document signé pour le moment.</p>
+        </div>
+      </section>
+
+      <!-- ===== SIGNATURE WIZARD VIEW ===== -->
+      <section id="view-signatureNew" class="view">
+        <div class="view-header">
+          <h2>Signer un document</h2>
+        </div>
+
+        <!-- 1. Document -->
+        <div class="card">
+          <div class="card-header"><h3>1. Document à signer</h3></div>
+          <div class="card-body">
+            <div class="md-dropzone sig-dropzone" id="sig-dropzone">
+              <input type="file" id="sig-file-input" accept="application/pdf,.pdf" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <p>Glissez-déposez un fichier <strong>PDF</strong> ici ou <button type="button" id="btn-choose-sig-pdf" class="btn-link">choisissez un fichier</button></p>
+              <small class="form-hint">8 Mo maximum — PDF non protégé par mot de passe.</small>
+            </div>
+            <div id="sig-file-info" class="sig-file-info" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <div class="sig-file-info-text">
+                <strong id="sig-file-name"></strong>
+                <small id="sig-file-meta"></small>
+              </div>
+              <button type="button" id="btn-change-sig-pdf" class="btn btn-outline btn-sm">Changer</button>
+            </div>
+            <div class="form-row cols-3">
+              <div class="form-group">
+                <label for="sig-title">Titre / Objet</label>
+                <input type="text" id="sig-title" placeholder="Ex : Contrat de maintenance — Dupont">
+              </div>
+              <div class="form-group">
+                <label for="sig-type">Type de document</label>
+                <select id="sig-type">
+                  <option>Contrat</option>
+                  <option>Devis</option>
+                  <option>Facture</option>
+                  <option>Bon de commande</option>
+                  <option>Avenant</option>
+                  <option>Attestation</option>
+                  <option>Convention</option>
+                  <option>Autre</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="sig-date">Date de signature</label>
+                <input type="date" id="sig-date">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="sig-description">Quel est ce document ? (description libre)</label>
+              <textarea id="sig-description" rows="2" placeholder="Ex : Convention de partenariat pour la saison 2026, signée entre les deux parties."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Entreprise -->
+        <div class="card">
+          <div class="card-header">
+            <h3>2. Entreprise signataire</h3>
+            <div class="card-actions">
+              <button type="button" id="btn-manage-companies" class="btn btn-sm btn-outline">Gérer les entreprises</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="sig-company-select">Quelle société signe ce document ?</label>
+              <select id="sig-company-select"></select>
+              <small class="form-hint">L'entreprise sélectionnée apparaît sous chaque signature. Ajoutez vos différentes sociétés dans « Profils ».</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Signataires -->
+        <div class="card">
+          <div class="card-header">
+            <h3>3. Signataires</h3>
+            <div class="card-actions">
+              <button type="button" id="btn-manage-signers" class="btn btn-sm btn-outline">Gérer les signataires</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="sig-signers-chips" class="sig-chips"></div>
+            <small class="form-hint">Cliquez pour sélectionner un signataire, puis cliquez sur le document ci-dessous pour placer sa signature. Une puce déjà active se retire d'un nouveau clic ; chaque signataire sélectionné doit être placé.</small>
+          </div>
+        </div>
+
+        <!-- 4. Placement -->
+        <div class="card">
+          <div class="card-header"><h3>4. Placement des signatures</h3></div>
+          <div class="card-body">
+            <p class="empty-state" id="sig-pages-empty">Téléversez d'abord un PDF.</p>
+            <div id="sig-pages" class="sig-pages"></div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" id="btn-sig-cancel" class="btn btn-outline">Annuler</button>
+          <button type="button" id="btn-sign-doc" class="btn btn-primary" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+            Signer le document
+          </button>
+        </div>
+        <p class="form-hint sig-status-line"><span id="sig-sign-hint">Téléversez d'abord le PDF à signer.</span></p>
+        <p class="form-hint sig-status-line">Signature simple apposée sur le PDF — ne constitue pas une signature électronique qualifiée (eIDAS).</p>
+      </section>
+
+      <!-- ===== PROFILES VIEW (signataires + entreprises) ===== -->
+      <section id="view-profiles" class="view">
+        <div class="view-header">
+          <h2>Profils</h2>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Profils de signature</h3>
+            <div class="card-actions">
+              <button type="button" id="btn-new-signer" class="btn btn-primary btn-sm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Nouveau signataire
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="signers-list" class="profiles-list"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Entreprises</h3>
+            <div class="card-actions">
+              <button type="button" id="btn-import-settings-company" class="btn btn-sm btn-outline" title="Créer une entreprise à partir des paramètres">Importer celle des paramètres</button>
+              <button type="button" id="btn-new-company" class="btn btn-primary btn-sm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Nouvelle entreprise
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="companies-list" class="profiles-list"></div>
+          </div>
+        </div>
+      </section>
+
       <!-- ===== SETTINGS VIEW ===== -->
       <section id="view-settings" class="view">
         <div class="view-header">
@@ -533,6 +701,110 @@
     </div>
   </div>
 
+  <!-- ========== SIGNATURE PROFILE MODAL (signataire) ========== -->
+  <div id="sigprofile-modal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content" style="max-width:540px;">
+      <div class="modal-header">
+        <h3 id="sp-title">Nouveau signataire</h3>
+        <div class="modal-actions">
+          <button type="button" id="sp-close" class="btn btn-outline btn-sm">Fermer</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <form id="sp-form" autocomplete="off">
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label for="sp-name">Nom complet</label>
+              <input type="text" id="sp-name" required placeholder="Jean Dupont">
+            </div>
+            <div class="form-group">
+              <label for="sp-role">Fonction (optionnel)</label>
+              <input type="text" id="sp-role" placeholder="Gérant, Directeur technique…">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Type de signature</label>
+            <div class="radio-row">
+              <label class="radio-pill">
+                <input type="radio" name="sp-style" value="font" checked>
+                <span>Nom en écriture manuscrite</span>
+              </label>
+              <label class="radio-pill">
+                <input type="radio" name="sp-style" value="draw">
+                <span>Dessin à la main</span>
+              </label>
+            </div>
+          </div>
+          <div id="sp-font-pane">
+            <div class="form-group">
+              <label>Style d'écriture</label>
+              <div id="sp-font-choices" class="sp-font-choices"></div>
+            </div>
+            <div class="form-group">
+              <label>Aperçu</label>
+              <div id="sp-name-preview" class="sp-preview"></div>
+            </div>
+          </div>
+          <div id="sp-draw-pane" hidden>
+            <div class="form-group">
+              <label>Dessinez votre signature à la souris ou au doigt</label>
+              <div class="sp-draw-wrap">
+                <canvas id="sp-draw-canvas"></canvas>
+              </div>
+              <button type="button" id="btn-sp-clear" class="btn btn-outline btn-sm" style="margin-top:8px;">Effacer</button>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-block">Enregistrer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== COMPANY MODAL (entreprise) ========== -->
+  <div id="company-modal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content" style="max-width:480px;">
+      <div class="modal-header">
+        <h3 id="cy-title">Nouvelle entreprise</h3>
+        <div class="modal-actions">
+          <button type="button" id="cy-close" class="btn btn-outline btn-sm">Fermer</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <form id="cy-form" autocomplete="off">
+          <div class="form-group">
+            <label for="cy-name">Nom de l'entreprise</label>
+            <input type="text" id="cy-name" required>
+          </div>
+          <div class="form-group">
+            <label for="cy-siret">SIRET (optionnel)</label>
+            <input type="text" id="cy-siret">
+          </div>
+          <div class="form-group">
+            <label for="cy-address">Adresse</label>
+            <input type="text" id="cy-address">
+          </div>
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label for="cy-postal">Code postal</label>
+              <input type="text" id="cy-postal">
+            </div>
+            <div class="form-group">
+              <label for="cy-city">Ville</label>
+              <input type="text" id="cy-city">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-block">Enregistrer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- ========== TOAST ========== -->
   <div id="toast-container"></div>
 
@@ -548,14 +820,17 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
-  <script src="js/state.js?v=14"></script>
-  <script src="js/server-sync.js?v=14"></script>
-  <script src="js/markdown.js?v=14"></script>
-  <script src="js/settings.js?v=14"></script>
-  <script src="js/clients.js?v=14"></script>
-  <script src="js/editor.js?v=14"></script>
-  <script src="js/pdf.js?v=14"></script>
-  <script src="js/history.js?v=14"></script>
-  <script src="js/app.js?v=14"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="js/state.js?v=15"></script>
+  <script src="js/server-sync.js?v=15"></script>
+  <script src="js/markdown.js?v=15"></script>
+  <script src="js/settings.js?v=15"></script>
+  <script src="js/clients.js?v=15"></script>
+  <script src="js/signatures.js?v=15"></script>
+  <script src="js/editor.js?v=15"></script>
+  <script src="js/pdf.js?v=15"></script>
+  <script src="js/history.js?v=15"></script>
+  <script src="js/app.js?v=15"></script>
 </body>
 </html>

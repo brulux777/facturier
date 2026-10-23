@@ -34,6 +34,8 @@ let state = {
   clients: [],
   invoices: [],
   counters: { invoice: 0, quote: 0 },
+  companies: [],          // profils d'entreprises (signature)
+  signatureProfiles: [],  // profils de signataires (signature)
 };
 
 function loadState() {
@@ -48,6 +50,8 @@ function loadState() {
       state.clients = saved.clients || [];
       state.invoices = saved.invoices || [];
       state.counters = saved.counters || { invoice: 0, quote: 0 };
+      state.companies = saved.companies || [];
+      state.signatureProfiles = saved.signatureProfiles || [];
     }
   } catch (e) {
     console.error('Failed to load state:', e);
@@ -139,17 +143,26 @@ function showToast(message, type = 'success') {
 
 // --- Navigation ---
 
-// Routes (mode serveur uniquement ; en local l'app reste sur une page)
+// Routes (mode serveur uniquement ; en local l'app reste sur une page).
+// IMPORTANT : un seul segment par route — les assets sont chargés en
+// chemins relatifs (compatibles GitHub Pages / file://) et une route
+// profonde casserait leur résolution (/x/y + "js/app.js" → /x/js/app.js).
 const VIEW_PATHS = {
   editor: '/',
   history: '/historique',
   clients: '/clients',
+  signatures: '/signature',
+  signatureNew: '/signer',
+  profiles: '/profils',
   settings: '/parametres',
 };
 const PATH_VIEWS = {
   '/': 'editor',
   '/historique': 'history',
   '/clients': 'clients',
+  '/signature': 'signatures',
+  '/signer': 'signatureNew',
+  '/profils': 'profiles',
   '/parametres': 'settings',
 };
 
@@ -165,6 +178,9 @@ function showView(viewId, navigate = true) {
 
   if (viewId === 'history') renderHistory();
   if (viewId === 'clients') renderClients();
+  if (viewId === 'signatures') renderSignaturesList(true);
+  if (viewId === 'signatureNew') prepareSignatureWizard();
+  if (viewId === 'profiles') renderProfiles();
 
   // URL dédiée par vue (/parametres, /clients, /historique) en mode serveur
   if (navigate && typeof SERVER_MODE !== 'undefined' && SERVER_MODE) {
