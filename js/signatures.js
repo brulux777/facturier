@@ -303,8 +303,12 @@ function newWizardState() {
     signers: [],      // ids de profils sélectionnés
     signerMeta: {},   // profileId -> { companyId: ''|id|'__none__', mention: '' }
     activeSigner: null,
-    placementMode: 'auto',  // 'auto' = toutes les pages | 'manual' = clic
-    autoPosition: 'bottom', // bottom | top | left | right
+    // 'auto' = position par défaut sur toutes les pages (liés entre eux)
+    // 'precise' = position choisie sur la 1re page, reproduite partout
+    //             (ajustements ensuite locaux) | 'manual' = page par page
+    placementMode: 'auto',
+    autoPosition: 'bottom', // bottom | top | left | right | bottom-right |
+                            // bottom-left | top-right | top-left
     placements: [],   // {id, profileId, page, xPct, yPct, wPct}
     blocks: {},       // PNG de bloc par profileId (avec clé d'invalidation)
     busy: false,
@@ -819,7 +823,8 @@ async function refreshSigBlocks() {
 // --- placement automatique (toutes les pages) ---
 
 // Répartit les signataires sur une page selon la position choisie :
-// bas/haut → côte à côte horizontalement ; gauche/droite → empilés verticalement.
+// bas/haut/coins → côte à côte horizontalement (alignés au centre ou au
+// coin) ; gauche/droite → empilés verticalement.
 function autoPlacementsForPage(pageIdx) {
   const n = sigWizard.signers.length;
   if (!n) return [];
@@ -831,14 +836,15 @@ function autoPlacementsForPage(pageIdx) {
   const margin = 0.05; // marge au bord (5 % du côté)
   const gap = 0.03;    // écart entre deux blocs
   const pos = sigWizard.autoPosition;
+  const isVertical = pos === 'left' || pos === 'right';
 
   let wPct = 0.24;
-  if (pos === 'bottom' || pos === 'top') {
+  if (!isVertical) {
     // largeur maxi pour tout faire tenir sur une ligne
     wPct = Math.min(wPct, (1 - 2 * margin - (n - 1) * gap) / n);
   }
   let hPcts = ratios.map((r) => wPct * (size.width / size.height) * r);
-  if (pos === 'left' || pos === 'right') {
+  if (isVertical) {
     const total = hPcts.reduce((a, b) => a + b, 0) + (n - 1) * gap;
     const maxH = 0.9; // zone utile verticale
     if (total > maxH) {
@@ -852,15 +858,18 @@ function autoPlacementsForPage(pageIdx) {
   const out = [];
   sigWizard.signers.forEach((profileId, i) => {
     let xPct, yPct;
-    if (pos === 'bottom' || pos === 'top') {
-      const total = n * wPct + (n - 1) * gap;
-      xPct = (1 - total) / 2 + i * (wPct + gap);
-      yPct = pos === 'bottom' ? 1 - edge - hPcts[i] : edge;
-    } else {
+    if (isVertical) {
       const total = hPcts.reduce((a, b) => a + b, 0) + (n - 1) * gap;
       const startY = (1 - total) / 2;
       xPct = pos === 'left' ? margin : 1 - margin - wPct;
       yPct = startY + hPcts.slice(0, i).reduce((a, b) => a + b, 0) + i * gap;
+    } else {
+      const total = n * wPct + (n - 1) * gap;
+      const hAlign = pos.endsWith('-left') ? 'start'
+        : pos.endsWith('-right') ? 'end' : 'center';
+      xPct = (hAlign === 'start' ? margin : hAlign === 'end' ? 1 - margin - total : (1 - total) / 2)
+        + i * (wPct + gap);
+      yPct = pos.startsWith('top') ? edge : 1 - edge - hPcts[i];
     }
     out.push({ id: generateId(), profileId, page: pageIdx, xPct, yPct, wPct });
   });
@@ -889,10 +898,13 @@ function updateSigPlaceModeUI() {
   const hint = document.getElementById('sig-place-hint');
   const isAuto = sigWizard.placementMode === 'auto';
   if (group) group.hidden = !isAuto;
-  if (hint) {
-    hint.textContent = isAuto
-      ? 'En mode automatique, chaque signataire est placé sur toutes les pages. Déplacer ou redimensionner un bloc entraîne ses copies sur toutes les autres pages ; « × » supprime uniquement la copie de cette page.'
-      : 'En mode manuel, sélectionnez un signataire (puces ci-dessus) puis cliquez sur le document pour placer ou déplacer sa signature. Cliquez sur d\'autres pages pour l\'y ajouter aussi.';
+  if (!hint) return;
+  if (isAuto) {
+    hint.textContent = 'En mode automatique, chaque signataire est placé sur toutes les pages à la position choisie. Déplacer ou redimensionner un bloc entraîne ses copies sur toutes les autres pages ; « × » supprime uniquement la copie de cette page.';
+  } else if (sigWizard.placementMode === 'precise') {
+    hint.textContent = 'Cliquez sur la première page pour placer un signataire : la position est reproduite sur toutes les pages. Ajustez ensuite chaque page librement (glisser, redimensionner, supprimer) — ces réglages restent locaux.';
+  } else {
+    hint.textContent = 'En mode manuel, sélectionnez un signataire (puces ci-dessus) puis cliquez sur le document pour placer ou déplacer sa signature. Cliquez sur d\'autres pages pour l\'y ajouter aussi.';
   }
 }
 
@@ -912,14 +924,14 @@ function placeActiveSigner(pageIdx, ev) {
   }
   const rect = ev.currentTarget.getBoundingClientRect();
   const size = sigWizard.pageSizes[pageIdx - 1];
-  const wPct = 0.24;
+  const profileId = sigWizard.activeSigner;
+  const mine = sigWizard.placements.filter((p) => p.profileId === profileId);
+  const wPct = mine.length ? mine[0].wPct : 0.24;
   let hPct = 0.1;
-  const probe = sigWizard.placements.find(
-    (p) => p.profileId === sigWizard.activeSigner && p.page === pageIdx
-  );
+  const probe = mine.find((p) => p.page === pageIdx);
   if (probe) hPct = placementHeightPct(probe);
   else {
-    const block = sigWizard.blocks[sigWizard.activeSigner];
+    const block = sigWizard.blocks[profileId];
     if (size && block) hPct = wPct * (size.width / size.height) * (block.h / block.w);
   }
 
@@ -928,7 +940,21 @@ function placeActiveSigner(pageIdx, ev) {
   xPct = Math.max(0, Math.min(1 - wPct, xPct));
   yPct = Math.max(0, Math.min(1 - hPct, yPct));
 
-  if (probe) {
+  if (sigWizard.placementMode === 'precise') {
+    // Position choisie une fois → reproduite sur toutes les pages (création
+    // ou repositionnement global). Les ajustements restent ensuite locaux.
+    for (let pg = 1; pg <= sigWizard.pageCount; pg++) {
+      let p = mine.find((x) => x.page === pg);
+      if (!p) {
+        p = { id: generateId(), profileId, page: pg, xPct: 0, yPct: 0, wPct };
+        sigWizard.placements.push(p);
+        mine.push(p);
+      }
+      const pgH = placementHeightPct(p);
+      p.xPct = Math.max(0, Math.min(1 - p.wPct, xPct));
+      p.yPct = Math.max(0, Math.min(1 - pgH, yPct));
+    }
+  } else if (probe) {
     probe.page = pageIdx;
     probe.xPct = xPct;
     probe.yPct = yPct;
@@ -936,16 +962,16 @@ function placeActiveSigner(pageIdx, ev) {
     if (sigWizard.placementMode === 'auto') {
       sigWizard.placements.forEach((p) => {
         if (p.profileId === probe.profileId && p.id !== probe.id) {
-          const hPct = placementHeightPct(p);
+          const hPct2 = placementHeightPct(p);
           p.xPct = Math.max(0, Math.min(1 - p.wPct, xPct));
-          p.yPct = Math.max(0, Math.min(1 - hPct, yPct));
+          p.yPct = Math.max(0, Math.min(1 - hPct2, yPct));
         }
       });
     }
   } else {
     sigWizard.placements.push({
       id: generateId(),
-      profileId: sigWizard.activeSigner,
+      profileId,
       page: pageIdx,
       xPct,
       yPct,

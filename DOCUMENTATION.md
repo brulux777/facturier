@@ -136,14 +136,19 @@ pas une signature électronique qualifiée au sens du règlement eIDAS).
    écritures manuscrites).
 5. Placer les signatures :
    - **automatique** : chaque signataire est placé sur **toutes les
-     pages** à la position choisie (bas, haut, bord gauche, bord
-     droit), avec répartition sans chevauchement (côte à côte en
-     bas/haut, empilés à gauche/droite). Déplacer ou redimensionner
-     un bloc entraîne ses copies sur toutes les autres pages ; « × »
-     supprime uniquement la copie de la page ;
+     pages** à la position par défaut choisie (bas, haut, bord
+     gauche, bord droit, ou un des quatre coins), avec répartition
+     sans chevauchement (côte à côte horizontalement, empilés à
+     gauche/droite). Déplacer ou redimensionner un bloc entraîne ses
+     copies sur toutes les autres pages ; « × » supprime uniquement
+     la copie de la page ;
+   - **précis** : cliquer sur la première page pour placer un
+     signataire — la position est reproduite sur toutes les pages,
+     puis chaque page s'ajuste librement (glisser, redimensionner,
+     supprimer : réglages locaux) ;
    - **manuel** : cliquer sur l'aperçu pour placer ou déplacer une
-     signature (un même signataire peut figurer sur plusieurs pages,
-     chaque copie étant alors indépendante).
+     signature page par page (un même signataire peut figurer sur
+     plusieurs pages, chaque copie étant indépendante).
 
    Dans les deux modes, chaque bloc reste ajustable (glisser,
    redimensionner, supprimer), puis **Signer le document**.

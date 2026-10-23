@@ -420,7 +420,7 @@
           </div>
           <div class="card-body">
             <div id="sig-signers-chips" class="sig-chips"></div>
-            <small class="form-hint">Cliquez pour sélectionner un signataire, puis placez sa signature (automatiquement sur toutes les pages, ou manuellement au clic). Une puce déjà active se retire d'un nouveau clic ; chaque signataire sélectionné doit être placé.</small>
+            <small class="form-hint">Cliquez pour sélectionner un signataire, puis placez sa signature : position automatique sur toutes les pages, position précise reproduite sur toutes les pages, ou placement manuel page par page. Une puce déjà active se retire d'un nouveau clic ; chaque signataire sélectionné doit être placé.</small>
             <div id="sig-signers-config" class="sig-signers-config"></div>
             <datalist id="sig-mentions">
               <option value="Bon pour accord"></option>
@@ -443,11 +443,15 @@
                 <div class="radio-row">
                   <label class="radio-pill">
                     <input type="radio" name="sig-place-mode" value="auto" checked>
-                    <span>Automatique — toutes les pages</span>
+                    <span>Automatique — position par défaut</span>
+                  </label>
+                  <label class="radio-pill">
+                    <input type="radio" name="sig-place-mode" value="precise">
+                    <span>Précis — placer sur la 1<sup>re</sup> page</span>
                   </label>
                   <label class="radio-pill">
                     <input type="radio" name="sig-place-mode" value="manual">
-                    <span>Manuel — clic sur le document</span>
+                    <span>Manuel — page par page</span>
                   </label>
                 </div>
               </div>
@@ -458,10 +462,14 @@
                   <option value="top">Haut de page</option>
                   <option value="left">Bord gauche</option>
                   <option value="right">Bord droit</option>
+                  <option value="bottom-right">Bas à droite</option>
+                  <option value="bottom-left">Bas à gauche</option>
+                  <option value="top-right">Haut à droite</option>
+                  <option value="top-left">Haut à gauche</option>
                 </select>
               </div>
             </div>
-            <small class="form-hint" id="sig-place-hint">En mode automatique, chaque signataire est placé sur toutes les pages. Déplacer ou redimensionner un bloc entraîne ses copies sur toutes les autres pages ; « × » supprime uniquement la copie de cette page.</small>
+            <small class="form-hint" id="sig-place-hint">En mode automatique, chaque signataire est placé sur toutes les pages à la position choisie. Déplacer ou redimensionner un bloc entraîne ses copies sur toutes les autres pages ; « × » supprime uniquement la copie de cette page.</small>
             <p class="empty-state" id="sig-pages-empty">Téléversez d'abord un PDF.</p>
             <div id="sig-pages" class="sig-pages"></div>
           </div>
